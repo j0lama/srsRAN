@@ -1030,7 +1030,7 @@ int register_plugin(rf_dev_t** rf_api)
   if (rf_api == NULL) {
     return SRSRAN_ERROR;
   }
-  *rf_api = &srsran_rf_dev_zmq;
+  *rf_api = &srsran_rf_dev_udp;
   return SRSRAN_SUCCESS;
 }
 #endif /* ENABLE_RF_PLUGINS */

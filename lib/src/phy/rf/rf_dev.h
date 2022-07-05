@@ -63,14 +63,8 @@ static srsran_rf_plugin_t plugin_zmq   = {"", NULL, &srsran_rf_dev_zmq};
 #endif
 
 /* Define implementation for UDP RF */
-#ifdef ENABLE_UDP
-#ifdef ENABLE_RF_PLUGINS
-static srsran_rf_plugin_t plugin_udp = {"libsrsran_rf_udp.so", NULL, NULL};
-#else
 #include "rf_udp_imp.h"
 static srsran_rf_plugin_t plugin_udp   = {"", NULL, &srsran_rf_dev_udp};
-#endif
-#endif
 
 /* Define implementation for file-based RF */
 #include "rf_file_imp.h"
@@ -121,14 +115,12 @@ static srsran_rf_plugin_t* rf_plugins[] = {
 #ifdef ENABLE_ZEROMQ
     &plugin_zmq,
 #endif
-#ifdef ENABLE_UDP
-    &plugin_udp,
-#endif
 #ifdef ENABLE_SIDEKIQ
     &plugin_skiq,
 #endif
 #ifdef ENABLE_DUMMY_DEV
     &plugin_dummy,
 #endif
+    &plugin_udp,
     &plugin_file,
     NULL};
