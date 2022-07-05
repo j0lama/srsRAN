@@ -19,7 +19,7 @@
  *
  */
 
-#include "rf_zmq_imp.h"
+#include "rf_udp_imp.h"
 #include "srsran/common/tsan_options.h"
 #include "srsran/phy/common/timestamp.h"
 #include "srsran/phy/utils/debug.h"
@@ -55,7 +55,7 @@ void* ue_rx_thread_function(void* args)
   // sleep(1);
 
   printf("opening rx device with args=%s\n", rf_args);
-  if (srsran_rf_open_devname(&ue_radio, "zmq", rf_args, NOF_RX_ANT)) {
+  if (srsran_rf_open_devname(&ue_radio, "udp", rf_args, NOF_RX_ANT)) {
     fprintf(stderr, "Error opening rf\n");
     exit(-1);
   }
@@ -74,7 +74,7 @@ void* ue_rx_thread_function(void* args)
 
   printf("received %d samples.\n", num_rxed_samps);
 
-  printf("closing ue zmq device\n");
+  printf("closing ue udp device\n");
   srsran_rf_close(&ue_radio);
 
   return NULL;
@@ -87,7 +87,7 @@ void enb_tx_function(const char* tx_args, bool timed_tx)
   rf_args[RF_PARAM_LEN - 1] = 0;
 
   printf("opening tx device with args=%s\n", rf_args);
-  if (srsran_rf_open_devname(&enb_radio, "zmq", rf_args, NOF_RX_ANT)) {
+  if (srsran_rf_open_devname(&enb_radio, "udp", rf_args, NOF_RX_ANT)) {
     fprintf(stderr, "Error opening rf\n");
     exit(-1);
   }
@@ -230,7 +230,7 @@ int param_test(const char* args_param, const int num_channels)
   rf_args[RF_PARAM_LEN - 1] = 0;
 
   printf("opening tx device with args=%s\n", rf_args);
-  if (srsran_rf_open_devname(&enb_radio, "zmq", rf_args, num_channels)) {
+  if (srsran_rf_open_devname(&enb_radio, "udp", rf_args, num_channels)) {
     fprintf(stderr, "Error opening rf\n");
     return SRSRAN_ERROR;
   }
