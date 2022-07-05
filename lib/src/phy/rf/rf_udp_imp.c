@@ -19,10 +19,10 @@
  *
  */
 
-#include "rf_zmq_imp.h"
+#include "rf_udp_imp.h"
 #include "rf_helper.h"
 #include "rf_plugin.h"
-#include "rf_zmq_imp_trx.h"
+#include "rf_udp_imp_trx.h"
 #include <math.h>
 #include <srsran/phy/common/phy_common.h>
 #include <srsran/phy/common/timestamp.h>
