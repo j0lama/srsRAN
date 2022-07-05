@@ -74,7 +74,8 @@ option(ENABLE_UHD            "Enable UHD"                               ON)
 option(ENABLE_BLADERF        "Enable BladeRF"                           ON)
 option(ENABLE_SOAPYSDR       "Enable SoapySDR"                          ON)
 option(ENABLE_SKIQ           "Enable Sidekiq SDK"                       ON)
-option(ENABLE_ZEROMQ         "Enable ZeroMQ"                            ON)
+option(ENABLE_ZEROMQ         "Enable ZeroMQ"                            OFF)
+option(ENABLE_UDP            "Enable UDP RF"                            ON)
 option(ENABLE_HARDSIM        "Enable support for SIM cards"             ON)
 
 option(ENABLE_TTCN3          "Enable TTCN3 test binaries"               OFF)
@@ -260,6 +261,15 @@ if(ENABLE_ZEROMQ)
     link_directories(${ZEROMQ_LIBRARY_DIRS})
   endif(ZEROMQ_FOUND)
 endif(ENABLE_ZEROMQ)
+
+# UDP
+if(ENABLE_UDP)
+  find_package(ZeroMQ)
+  if(ZEROMQ_FOUND)
+    include_directories(${ZEROMQ_INCLUDE_DIRS})
+    link_directories(${ZEROMQ_LIBRARY_DIRS})
+  endif(ZEROMQ_FOUND)
+endif(ENABLE_UDP)
 
 # TimeProf
 if(ENABLE_TIMEPROF)
