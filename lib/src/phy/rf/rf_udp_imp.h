@@ -30,7 +30,7 @@
 
 #define DEVNAME_ZMQ "UDP"
 
-extern rf_dev_t srsran_rf_dev_zmq;
+extern rf_dev_t srsran_rf_dev_udp;
 
 SRSRAN_API int rf_zmq_open(char* args, void** handler);
 
