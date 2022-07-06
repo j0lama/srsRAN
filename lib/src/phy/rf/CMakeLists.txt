@@ -135,7 +135,7 @@ if(RF_FOUND)
       add_library(srsran_rf_udp STATIC ${SOURCES_UDP})
       list(APPEND STATIC_PLUGINS srsran_rf_udp)
     endif (ENABLE_RF_PLUGINS)
-    target_link_libraries(srsran_rf_udp srsran_rf_utils srsran_phy ${UDP_LIBRARIES})
+    target_link_libraries(srsran_rf_udp srsran_rf_utils srsran_phy ${ZEROMQ_LIBRARIES})
     install(TARGETS srsran_rf_udp DESTINATION ${LIBRARY_DIR} OPTIONAL)
   endif (ENABLE_UDP)
 
