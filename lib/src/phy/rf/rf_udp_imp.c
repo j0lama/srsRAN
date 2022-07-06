@@ -298,7 +298,7 @@ int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
     update_rates(handler, 1.92e6);
 
     //  Create UDP context
-    handler->context = udp_ctx_new();
+    handler->context = zmq_ctx_new();
     if (!handler->context) {
       fprintf(stderr, "[udp] Error: creating new context\n");
       goto clean_exit;
@@ -411,7 +411,7 @@ int rf_udp_close(void* h)
   }
 
   if (handler->context) {
-    udp_ctx_destroy(handler->context);
+    zmq_ctx_destroy(handler->context);
   }
 
   for (uint32_t i = 0; i < handler->nof_channels; i++) {
