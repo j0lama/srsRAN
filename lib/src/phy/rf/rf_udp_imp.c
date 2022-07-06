@@ -51,8 +51,8 @@ typedef struct {
 
   // Server
   void*       context;
-  rf_zmq_tx_t transmitter[SRSRAN_MAX_CHANNELS];
-  rf_zmq_rx_t receiver[SRSRAN_MAX_CHANNELS];
+  rf_udp_tx_t transmitter[SRSRAN_MAX_CHANNELS];
+  rf_udp_rx_t receiver[SRSRAN_MAX_CHANNELS];
 
   // Various sample buffers
   cf_t* buffer_decimation[SRSRAN_MAX_CHANNELS];
@@ -65,20 +65,20 @@ typedef struct {
   pthread_mutex_t rx_config_mutex;
   pthread_mutex_t decim_mutex;
   pthread_mutex_t rx_gain_mutex;
-} rf_zmq_handler_t;
+} rf_udp_handler_t;
 
-static void update_rates(rf_zmq_handler_t* handler, double srate);
+static void update_rates(rf_udp_handler_t* handler, double srate);
 
 /*
  * Static Atributes
  */
-const char zmq_devname[4] = "udp";
+const char udp_devname[4] = "udp";
 
 /*
  * Static methods
  */
 
-void rf_zmq_info(char* id, const char* format, ...)
+void rf_udp_info(char* id, const char* format, ...)
 {
 #if VERBOSE
   struct timeval t;
@@ -93,7 +93,7 @@ void rf_zmq_info(char* id, const char* format, ...)
 #endif /* VERBOSE */
 }
 
-void rf_zmq_error(char* id, const char* format, ...)
+void rf_udp_error(char* id, const char* format, ...)
 {
   struct timeval t;
   gettimeofday(&t, NULL);
@@ -108,13 +108,13 @@ static inline int update_ts(void* h, uint64_t* ts, int nsamples, const char* dir
   int ret = SRSRAN_ERROR;
 
   if (h && nsamples > 0) {
-    rf_zmq_handler_t* handler = (rf_zmq_handler_t*)h;
+    rf_udp_handler_t* handler = (rf_udp_handler_t*)h;
 
     (*ts) += nsamples;
 
     srsran_timestamp_t _ts = {};
     srsran_timestamp_init_uint64(&_ts, *ts, handler->base_srate);
-    rf_zmq_info(
+    rf_udp_info(
         handler->id, "    -> next %s time after %d samples: %d + %.3f\n", dir, nsamples, _ts.full_secs, _ts.frac_secs);
 
     ret = SRSRAN_SUCCESS;
@@ -123,7 +123,7 @@ static inline int update_ts(void* h, uint64_t* ts, int nsamples, const char* dir
   return ret;
 }
 
-int rf_zmq_handle_error(char* id, const char* text)
+int rf_udp_handle_error(char* id, const char* text)
 {
   int ret = SRSRAN_SUCCESS;
 
@@ -133,13 +133,13 @@ int rf_zmq_handle_error(char* id, const char* text)
     // handled errors
     case EFSM:
     case EAGAIN:
-      rf_zmq_info(id, "Warning %s: %s\n", text, zmq_strerror(err));
+      rf_udp_info(id, "Warning %s: %s\n", text, zmq_strerror(err));
       break;
 
     // critical non-handled errors
     default:
       ret = SRSRAN_ERROR;
-      rf_zmq_error(id, "Error %s: %s\n", text, zmq_strerror(err));
+      rf_udp_error(id, "Error %s: %s\n", text, zmq_strerror(err));
   }
 
   return ret;
@@ -149,77 +149,77 @@ int rf_zmq_handle_error(char* id, const char* text)
  * Public methods
  */
 
-void rf_zmq_suppress_stdout(void* h)
+void rf_udp_suppress_stdout(void* h)
 {
   // do nothing
 }
 
-void rf_zmq_register_error_handler(void* h, srsran_rf_error_handler_t new_handler, void* arg)
+void rf_udp_register_error_handler(void* h, srsran_rf_error_handler_t new_handler, void* arg)
 {
   // do nothing
 }
 
-const char* rf_zmq_devname(void* h)
+const char* rf_udp_devname(void* h)
 {
-  return zmq_devname;
+  return udp_devname;
 }
 
-int rf_zmq_start_rx_stream(void* h, bool now)
+int rf_udp_start_rx_stream(void* h, bool now)
 {
   return SRSRAN_SUCCESS;
 }
 
-int rf_zmq_stop_rx_stream(void* h)
+int rf_udp_stop_rx_stream(void* h)
 {
   return 0;
 }
 
-void rf_zmq_flush_buffer(void* h)
+void rf_udp_flush_buffer(void* h)
 {
   printf("%s\n", __FUNCTION__);
 }
 
-bool rf_zmq_has_rssi(void* h)
+bool rf_udp_has_rssi(void* h)
 {
   return false;
 }
 
-float rf_zmq_get_rssi(void* h)
+float rf_udp_get_rssi(void* h)
 {
   return 0.0;
 }
 
-int rf_zmq_open(char* args, void** h)
+int rf_udp_open(char* args, void** h)
 {
-  return rf_zmq_open_multi(args, h, 1);
+  return rf_udp_open_multi(args, h, 1);
 }
 
-int rf_zmq_open_multi(char* args, void** h, uint32_t nof_channels)
+int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
 {
   int ret = SRSRAN_ERROR;
   if (h && nof_channels < SRSRAN_MAX_CHANNELS) {
     *h = NULL;
 
-    rf_zmq_handler_t* handler = (rf_zmq_handler_t*)malloc(sizeof(rf_zmq_handler_t));
+    rf_udp_handler_t* handler = (rf_udp_handler_t*)malloc(sizeof(rf_udp_handler_t));
     if (!handler) {
       perror("malloc");
       return SRSRAN_ERROR;
     }
-    bzero(handler, sizeof(rf_zmq_handler_t));
+    bzero(handler, sizeof(rf_udp_handler_t));
     *h                  = handler;
-    handler->base_srate = ZMQ_BASERATE_DEFAULT_HZ; // Sample rate for 100 PRB cell
+    handler->base_srate = UDP_BASERATE_DEFAULT_HZ; // Sample rate for 100 PRB cell
     pthread_mutex_lock(&handler->rx_gain_mutex);
     handler->rx_gain = 0.0;
     pthread_mutex_unlock(&handler->rx_gain_mutex);
-    handler->info.max_rx_gain = ZMQ_MAX_GAIN_DB;
-    handler->info.min_rx_gain = ZMQ_MIN_GAIN_DB;
-    handler->info.max_tx_gain = ZMQ_MAX_GAIN_DB;
-    handler->info.min_tx_gain = ZMQ_MIN_GAIN_DB;
+    handler->info.max_rx_gain = UDP_MAX_GAIN_DB;
+    handler->info.min_rx_gain = UDP_MIN_GAIN_DB;
+    handler->info.max_tx_gain = UDP_MAX_GAIN_DB;
+    handler->info.min_tx_gain = UDP_MIN_GAIN_DB;
     handler->nof_channels     = nof_channels;
     strcpy(handler->id, "udp\0");
 
-    rf_zmq_opts_t rx_opts = {};
-    rf_zmq_opts_t tx_opts = {};
+    rf_udp_opts_t rx_opts = {};
+    rf_udp_opts_t tx_opts = {};
     rx_opts.socket_type   = ZMQ_REQ;
     tx_opts.socket_type   = ZMQ_REP;
     tx_opts.id            = handler->id;
@@ -258,10 +258,10 @@ int rf_zmq_open_multi(char* args, void** h, uint32_t nof_channels)
       }
 
       // rx_format
-      rx_opts.sample_format = ZMQ_TYPE_FC32;
+      rx_opts.sample_format = UDP_TYPE_FC32;
       if (parse_string(args, "rx_format", -1, tmp) == SRSRAN_SUCCESS) {
         if (!strcmp(tmp, "sc16")) {
-          rx_opts.sample_format = ZMQ_TYPE_SC16;
+          rx_opts.sample_format = UDP_TYPE_SC16;
         } else {
           printf("Unsupported sample format %s\n", tmp);
           goto clean_exit;
@@ -279,10 +279,10 @@ int rf_zmq_open_multi(char* args, void** h, uint32_t nof_channels)
       }
 
       // tx_format
-      tx_opts.sample_format = ZMQ_TYPE_FC32;
+      tx_opts.sample_format = UDP_TYPE_FC32;
       if (parse_string(args, "tx_format", -1, tmp) == SRSRAN_SUCCESS) {
         if (!strcmp(tmp, "sc16")) {
-          tx_opts.sample_format = ZMQ_TYPE_SC16;
+          tx_opts.sample_format = UDP_TYPE_SC16;
         } else {
           printf("Unsupported sample format %s\n", tmp);
           goto clean_exit;
@@ -291,14 +291,14 @@ int rf_zmq_open_multi(char* args, void** h, uint32_t nof_channels)
     } else {
       fprintf(stderr,
               "[udp] Error: No device 'args' option has been set. Please make sure to set this option to be able to "
-              "use the ZMQ no-RF module\n");
+              "use the UDP no-RF module\n");
       goto clean_exit;
     }
 
     update_rates(handler, 1.92e6);
 
-    //  Create ZMQ context
-    handler->context = zmq_ctx_new();
+    //  Create UDP context
+    handler->context = udp_ctx_new();
     if (!handler->context) {
       fprintf(stderr, "[udp] Error: creating new context\n");
       goto clean_exit;
@@ -337,7 +337,7 @@ int rf_zmq_open_multi(char* args, void** h, uint32_t nof_channels)
       }
 
       // trx_timeout_ms
-      rx_opts.trx_timeout_ms = ZMQ_TIMEOUT_MS;
+      rx_opts.trx_timeout_ms = UDP_TIMEOUT_MS;
       parse_uint32(args, "trx_timeout_ms", i, &rx_opts.trx_timeout_ms);
 
       // log_trx_timeout
@@ -349,7 +349,7 @@ int rf_zmq_open_multi(char* args, void** h, uint32_t nof_channels)
 
       // initialize transmitter
       if (strlen(tx_port) != 0) {
-        if (rf_zmq_tx_open(&handler->transmitter[i], tx_opts, handler->context, tx_port) != SRSRAN_SUCCESS) {
+        if (rf_udp_tx_open(&handler->transmitter[i], tx_opts, handler->context, tx_port) != SRSRAN_SUCCESS) {
           fprintf(stderr, "[udp] Error: opening transmitter\n");
           goto clean_exit;
         }
@@ -360,7 +360,7 @@ int rf_zmq_open_multi(char* args, void** h, uint32_t nof_channels)
 
       // initialize receiver
       if (strlen(rx_port) != 0) {
-        if (rf_zmq_rx_open(&handler->receiver[i], rx_opts, handler->context, rx_port) != SRSRAN_SUCCESS) {
+        if (rf_udp_rx_open(&handler->receiver[i], rx_opts, handler->context, rx_port) != SRSRAN_SUCCESS) {
           fprintf(stderr, "[udp] Error: opening receiver\n");
           goto clean_exit;
         }
@@ -376,14 +376,14 @@ int rf_zmq_open_multi(char* args, void** h, uint32_t nof_channels)
 
     // Create decimation and overflow buffer
     for (uint32_t i = 0; i < handler->nof_channels; i++) {
-      handler->buffer_decimation[i] = srsran_vec_malloc(ZMQ_MAX_BUFFER_SIZE);
+      handler->buffer_decimation[i] = srsran_vec_malloc(UDP_MAX_BUFFER_SIZE);
       if (!handler->buffer_decimation[i]) {
         fprintf(stderr, "Error: allocating decimation buffer\n");
         goto clean_exit;
       }
     }
 
-    handler->buffer_tx = srsran_vec_malloc(ZMQ_MAX_BUFFER_SIZE);
+    handler->buffer_tx = srsran_vec_malloc(UDP_MAX_BUFFER_SIZE);
     if (!handler->buffer_tx) {
       fprintf(stderr, "Error: allocating tx buffer\n");
       goto clean_exit;
@@ -393,25 +393,25 @@ int rf_zmq_open_multi(char* args, void** h, uint32_t nof_channels)
 
   clean_exit:
     if (ret) {
-      rf_zmq_close(handler);
+      rf_udp_close(handler);
     }
   }
   return ret;
 }
 
-int rf_zmq_close(void* h)
+int rf_udp_close(void* h)
 {
-  rf_zmq_handler_t* handler = (rf_zmq_handler_t*)h;
+  rf_udp_handler_t* handler = (rf_udp_handler_t*)h;
 
-  rf_zmq_info(handler->id, "Closing ...\n");
+  rf_udp_info(handler->id, "Closing ...\n");
 
   for (int i = 0; i < handler->nof_channels; i++) {
-    rf_zmq_tx_close(&handler->transmitter[i]);
-    rf_zmq_rx_close(&handler->receiver[i]);
+    rf_udp_tx_close(&handler->transmitter[i]);
+    rf_udp_rx_close(&handler->receiver[i]);
   }
 
   if (handler->context) {
-    zmq_ctx_destroy(handler->context);
+    udp_ctx_destroy(handler->context);
   }
 
   for (uint32_t i = 0; i < handler->nof_channels; i++) {
@@ -435,7 +435,7 @@ int rf_zmq_close(void* h)
   return SRSRAN_SUCCESS;
 }
 
-void update_rates(rf_zmq_handler_t* handler, double srate)
+void update_rates(rf_udp_handler_t* handler, double srate)
 {
   pthread_mutex_lock(&handler->decim_mutex);
   if (handler) {
@@ -457,32 +457,32 @@ void update_rates(rf_zmq_handler_t* handler, double srate)
   pthread_mutex_unlock(&handler->decim_mutex);
 }
 
-double rf_zmq_set_rx_srate(void* h, double srate)
+double rf_udp_set_rx_srate(void* h, double srate)
 {
   double ret = 0.0;
   if (h) {
-    rf_zmq_handler_t* handler = (rf_zmq_handler_t*)h;
+    rf_udp_handler_t* handler = (rf_udp_handler_t*)h;
     update_rates(handler, srate);
     ret = handler->srate;
   }
   return ret;
 }
 
-double rf_zmq_set_tx_srate(void* h, double srate)
+double rf_udp_set_tx_srate(void* h, double srate)
 {
   double ret = 0.0;
   if (h) {
-    rf_zmq_handler_t* handler = (rf_zmq_handler_t*)h;
+    rf_udp_handler_t* handler = (rf_udp_handler_t*)h;
     update_rates(handler, srate);
     ret = srate;
   }
   return ret;
 }
 
-int rf_zmq_set_rx_gain(void* h, double gain)
+int rf_udp_set_rx_gain(void* h, double gain)
 {
   if (h) {
-    rf_zmq_handler_t* handler = (rf_zmq_handler_t*)h;
+    rf_udp_handler_t* handler = (rf_udp_handler_t*)h;
     pthread_mutex_lock(&handler->rx_gain_mutex);
     handler->rx_gain = gain;
     pthread_mutex_unlock(&handler->rx_gain_mutex);
@@ -490,15 +490,15 @@ int rf_zmq_set_rx_gain(void* h, double gain)
   return SRSRAN_SUCCESS;
 }
 
-int rf_zmq_set_rx_gain_ch(void* h, uint32_t ch, double gain)
+int rf_udp_set_rx_gain_ch(void* h, uint32_t ch, double gain)
 {
-  return rf_zmq_set_rx_gain(h, gain);
+  return rf_udp_set_rx_gain(h, gain);
 }
 
-int rf_zmq_set_tx_gain(void* h, double gain)
+int rf_udp_set_tx_gain(void* h, double gain)
 {
   if (h) {
-    rf_zmq_handler_t* handler = (rf_zmq_handler_t*)h;
+    rf_udp_handler_t* handler = (rf_udp_handler_t*)h;
     pthread_mutex_lock(&handler->tx_config_mutex);
     handler->tx_gain = gain;
     pthread_mutex_unlock(&handler->tx_config_mutex);
@@ -506,16 +506,16 @@ int rf_zmq_set_tx_gain(void* h, double gain)
   return SRSRAN_SUCCESS;
 }
 
-int rf_zmq_set_tx_gain_ch(void* h, uint32_t ch, double gain)
+int rf_udp_set_tx_gain_ch(void* h, uint32_t ch, double gain)
 {
-  return rf_zmq_set_tx_gain(h, gain);
+  return rf_udp_set_tx_gain(h, gain);
 }
 
-double rf_zmq_get_rx_gain(void* h)
+double rf_udp_get_rx_gain(void* h)
 {
   double ret = 0.0;
   if (h) {
-    rf_zmq_handler_t* handler = (rf_zmq_handler_t*)h;
+    rf_udp_handler_t* handler = (rf_udp_handler_t*)h;
     pthread_mutex_lock(&handler->rx_gain_mutex);
     ret = handler->rx_gain;
     pthread_mutex_unlock(&handler->rx_gain_mutex);
@@ -523,11 +523,11 @@ double rf_zmq_get_rx_gain(void* h)
   return ret;
 }
 
-double rf_zmq_get_tx_gain(void* h)
+double rf_udp_get_tx_gain(void* h)
 {
   float ret = NAN;
   if (h) {
-    rf_zmq_handler_t* handler = (rf_zmq_handler_t*)h;
+    rf_udp_handler_t* handler = (rf_udp_handler_t*)h;
     pthread_mutex_lock(&handler->tx_config_mutex);
     ret = handler->tx_gain;
     pthread_mutex_unlock(&handler->tx_config_mutex);
@@ -535,21 +535,21 @@ double rf_zmq_get_tx_gain(void* h)
   return ret;
 }
 
-srsran_rf_info_t* rf_zmq_get_info(void* h)
+srsran_rf_info_t* rf_udp_get_info(void* h)
 {
   srsran_rf_info_t* info = NULL;
   if (h) {
-    rf_zmq_handler_t* handler = (rf_zmq_handler_t*)h;
+    rf_udp_handler_t* handler = (rf_udp_handler_t*)h;
     info                      = &handler->info;
   }
   return info;
 }
 
-double rf_zmq_set_rx_freq(void* h, uint32_t ch, double freq)
+double rf_udp_set_rx_freq(void* h, uint32_t ch, double freq)
 {
   double ret = NAN;
   if (h) {
-    rf_zmq_handler_t* handler = (rf_zmq_handler_t*)h;
+    rf_udp_handler_t* handler = (rf_udp_handler_t*)h;
     pthread_mutex_lock(&handler->rx_config_mutex);
     if (ch < handler->nof_channels && isnormal(freq) && freq > 0.0) {
       handler->rx_freq_mhz[ch] = (uint32_t)(freq / 1e6);
@@ -560,11 +560,11 @@ double rf_zmq_set_rx_freq(void* h, uint32_t ch, double freq)
   return ret;
 }
 
-double rf_zmq_set_tx_freq(void* h, uint32_t ch, double freq)
+double rf_udp_set_tx_freq(void* h, uint32_t ch, double freq)
 {
   double ret = NAN;
   if (h) {
-    rf_zmq_handler_t* handler = (rf_zmq_handler_t*)h;
+    rf_udp_handler_t* handler = (rf_udp_handler_t*)h;
     pthread_mutex_lock(&handler->tx_config_mutex);
     if (ch < handler->nof_channels && isnormal(freq) && freq > 0.0) {
       handler->tx_freq_mhz[ch] = (uint32_t)(freq / 1e6);
@@ -575,7 +575,7 @@ double rf_zmq_set_tx_freq(void* h, uint32_t ch, double freq)
   return ret;
 }
 
-void rf_zmq_get_time(void* h, time_t* secs, double* frac_secs)
+void rf_udp_get_time(void* h, time_t* secs, double* frac_secs)
 {
   if (h) {
     if (secs) {
@@ -588,8 +588,8 @@ void rf_zmq_get_time(void* h, time_t* secs, double* frac_secs)
   }
 }
 
-#if ZMQ_MONITOR
-static int rf_zmq_rx_get_monitor_event(void* monitor, int* value, char** address)
+#if UDP_MONITOR
+static int rf_udp_rx_get_monitor_event(void* monitor, int* value, char** address)
 {
   // First frame in message contains event number and value
   zmq_msg_t msg;
@@ -627,19 +627,19 @@ static int rf_zmq_rx_get_monitor_event(void* monitor, int* value, char** address
   }
   return event;
 }
-#endif // ZMQ_MONITOR
+#endif // UDP_MONITOR
 
-int rf_zmq_recv_with_time(void* h, void* data, uint32_t nsamples, bool blocking, time_t* secs, double* frac_secs)
+int rf_udp_recv_with_time(void* h, void* data, uint32_t nsamples, bool blocking, time_t* secs, double* frac_secs)
 {
-  return rf_zmq_recv_with_time_multi(h, &data, nsamples, blocking, secs, frac_secs);
+  return rf_udp_recv_with_time_multi(h, &data, nsamples, blocking, secs, frac_secs);
 }
 
-int rf_zmq_recv_with_time_multi(void* h, void** data, uint32_t nsamples, bool blocking, time_t* secs, double* frac_secs)
+int rf_udp_recv_with_time_multi(void* h, void** data, uint32_t nsamples, bool blocking, time_t* secs, double* frac_secs)
 {
   int ret = SRSRAN_ERROR;
 
   if (h) {
-    rf_zmq_handler_t* handler = (rf_zmq_handler_t*)h;
+    rf_udp_handler_t* handler = (rf_udp_handler_t*)h;
 
     // Map ports to data buffers according to the selected frequencies
     pthread_mutex_lock(&handler->rx_config_mutex);
@@ -653,7 +653,7 @@ int rf_zmq_recv_with_time_multi(void* h, void** data, uint32_t nsamples, bool bl
       // For each physical channel...
       for (uint32_t physical = 0; physical < handler->nof_channels; physical++) {
         // Consider a match if the physical channel is NOT mapped and the frequency match
-        if (!mapped[physical] && rf_zmq_rx_match_freq(&handler->receiver[physical], handler->rx_freq_mhz[logical])) {
+        if (!mapped[physical] && rf_udp_rx_match_freq(&handler->receiver[physical], handler->rx_freq_mhz[logical])) {
           // Not mapped and matched frequency with receiver
           buffers[physical] = (cf_t*)data[logical];
           mapped[physical]  = true;
@@ -677,7 +677,7 @@ int rf_zmq_recv_with_time_multi(void* h, void** data, uint32_t nsamples, bool bl
     uint32_t nbytes            = NSAMPLES2NBYTES(nsamples * decim_factor);
     uint32_t nsamples_baserate = nsamples * decim_factor;
 
-    rf_zmq_info(handler->id, "Rx %d samples (%d B)\n", nsamples, nbytes);
+    rf_udp_info(handler->id, "Rx %d samples (%d B)\n", nsamples, nbytes);
 
     // set timestamp for this reception
     if (secs != NULL && frac_secs != NULL) {
@@ -688,35 +688,35 @@ int rf_zmq_recv_with_time_multi(void* h, void** data, uint32_t nsamples, bool bl
     }
 
     // return if receiver is turned off
-    if (!rf_zmq_rx_is_running(&handler->receiver[0])) {
+    if (!rf_udp_rx_is_running(&handler->receiver[0])) {
       update_ts(handler, &handler->next_rx_ts, nsamples_baserate, "rx");
       return nsamples;
     }
 
     // Check available buffer size
-    if (nbytes > ZMQ_MAX_BUFFER_SIZE) {
+    if (nbytes > UDP_MAX_BUFFER_SIZE) {
       fprintf(stderr,
               "[udp] Error: Trying to receive %d B but buffer is only %zu B at channel %d.\n",
               nbytes,
-              ZMQ_MAX_BUFFER_SIZE,
+              UDP_MAX_BUFFER_SIZE,
               0);
       goto clean_exit;
     }
 
     // receive samples
     srsran_timestamp_t ts_tx = {}, ts_rx = {};
-    srsran_timestamp_init_uint64(&ts_tx, rf_zmq_tx_get_nsamples(&handler->transmitter[0]), handler->base_srate);
+    srsran_timestamp_init_uint64(&ts_tx, rf_udp_tx_get_nsamples(&handler->transmitter[0]), handler->base_srate);
     srsran_timestamp_init_uint64(&ts_rx, handler->next_rx_ts, handler->base_srate);
-    rf_zmq_info(handler->id, " - next rx time: %d + %.3f\n", ts_rx.full_secs, ts_rx.frac_secs);
-    rf_zmq_info(handler->id, " - next tx time: %d + %.3f\n", ts_tx.full_secs, ts_tx.frac_secs);
+    rf_udp_info(handler->id, " - next rx time: %d + %.3f\n", ts_rx.full_secs, ts_rx.frac_secs);
+    rf_udp_info(handler->id, " - next tx time: %d + %.3f\n", ts_tx.full_secs, ts_tx.frac_secs);
 
     // Leave time for the Tx to transmit
     usleep((1000000UL * nsamples_baserate) / handler->base_srate);
 
     // check for tx gap if we're also transmitting on this radio
     for (int i = 0; i < handler->nof_channels; i++) {
-      if (rf_zmq_tx_is_running(&handler->transmitter[i])) {
-        rf_zmq_tx_align(&handler->transmitter[i], handler->next_rx_ts + nsamples_baserate);
+      if (rf_udp_tx_is_running(&handler->transmitter[i])) {
+        rf_udp_tx_align(&handler->transmitter[i], handler->next_rx_ts + nsamples_baserate);
       }
     }
 
@@ -731,12 +731,12 @@ int rf_zmq_recv_with_time_multi(void* h, void** data, uint32_t nsamples, bool bl
         cf_t* ptr = (decim_factor != 1 || buffers[i] == NULL) ? handler->buffer_decimation[i] : buffers[i];
 
         // Completed condition
-        if (count[i] < nsamples_baserate && rf_zmq_rx_is_running(&handler->receiver[i])) {
+        if (count[i] < nsamples_baserate && rf_udp_rx_is_running(&handler->receiver[i])) {
           // Keep receiving
-          int32_t n = rf_zmq_rx_baseband(&handler->receiver[i], &ptr[count[i]], nsamples_baserate);
-#if ZMQ_MONITOR
+          int32_t n = rf_udp_rx_baseband(&handler->receiver[i], &ptr[count[i]], nsamples_baserate);
+#if UDP_MONITOR
           // handle socket events
-          int event = rf_zmq_rx_get_monitor_event(handler->receiver[i].socket_monitor, NULL, NULL);
+          int event = rf_udp_rx_get_monitor_event(handler->receiver[i].socket_monitor, NULL, NULL);
           if (event != -1) {
             printf("event=0x%X\n", event);
             switch (event) {
@@ -750,7 +750,7 @@ int rf_zmq_recv_with_time_multi(void* h, void** data, uint32_t nsamples, bool bl
                 break;
             }
           }
-#endif // ZMQ_MONITOR
+#endif // UDP_MONITOR
           if (n > SRSRAN_SUCCESS) {
             // No error
             count[i] += n;
@@ -776,7 +776,7 @@ int rf_zmq_recv_with_time_multi(void* h, void** data, uint32_t nsamples, bool bl
       // Check if all channels are completed
       completed = (completed_count == handler->nof_channels);
     }
-    rf_zmq_info(handler->id,
+    rf_udp_info(handler->id,
                 " - read %d samples. %d samples available\n",
                 NBYTES2NSAMPLES(nbytes),
                 NBYTES2NSAMPLES(srsran_ringbuffer_status(&handler->receiver[0].ringbuffer)));
@@ -798,7 +798,7 @@ int rf_zmq_recv_with_time_multi(void* h, void** data, uint32_t nsamples, bool bl
             dst[i] = avg; // divide by decim_factor later via scale
           }
 
-          rf_zmq_info(handler->id,
+          rf_udp_info(handler->id,
                       "  - re-adjust bytes due to %dx decimation %d --> %d samples)\n",
                       decim_factor,
                       nsamples_baserate,
@@ -832,7 +832,7 @@ clean_exit:
   return ret;
 }
 
-int rf_zmq_send_timed(void*  h,
+int rf_udp_send_timed(void*  h,
                       void*  data,
                       int    nsamples,
                       time_t secs,
@@ -844,12 +844,12 @@ int rf_zmq_send_timed(void*  h,
 {
   void* _data[4] = {data, NULL, NULL, NULL};
 
-  return rf_zmq_send_timed_multi(
+  return rf_udp_send_timed_multi(
       h, _data, nsamples, secs, frac_secs, has_time_spec, blocking, is_start_of_burst, is_end_of_burst);
 }
 
 // TODO: Implement Tx upsampling
-int rf_zmq_send_timed_multi(void*  h,
+int rf_udp_send_timed_multi(void*  h,
                             void*  data[4],
                             int    nsamples,
                             time_t secs,
@@ -862,7 +862,7 @@ int rf_zmq_send_timed_multi(void*  h,
   int ret = SRSRAN_ERROR;
 
   if (h && data && nsamples > 0) {
-    rf_zmq_handler_t* handler = (rf_zmq_handler_t*)h;
+    rf_udp_handler_t* handler = (rf_udp_handler_t*)h;
 
     // Map ports to data buffers according to the selected frequencies
     pthread_mutex_lock(&handler->tx_config_mutex);
@@ -874,7 +874,7 @@ int rf_zmq_send_timed_multi(void*  h,
       // For each physical channel...
       for (uint32_t physical = 0; physical < handler->nof_channels; physical++) {
         // Consider a match if the physical channel is NOT mapped and the frequency match
-        if (!mapped[physical] && rf_zmq_tx_match_freq(&handler->transmitter[physical], handler->tx_freq_mhz[logical])) {
+        if (!mapped[physical] && rf_udp_tx_match_freq(&handler->transmitter[physical], handler->tx_freq_mhz[logical])) {
           // Not mapped and matched frequency with receiver
           buffers[physical] = (cf_t*)data[logical];
           mapped[physical]  = true;
@@ -901,12 +901,12 @@ int rf_zmq_send_timed_multi(void*  h,
     uint32_t nbytes            = NSAMPLES2NBYTES(nsamples);
     uint32_t nsamples_baseband = nsamples * decim_factor;
     uint32_t nbytes_baseband   = NSAMPLES2NBYTES(nsamples_baseband);
-    if (nbytes_baseband > ZMQ_MAX_BUFFER_SIZE) {
-      fprintf(stderr, "Error: trying to transmit too many samples (%d > %zu).\n", nbytes, ZMQ_MAX_BUFFER_SIZE);
+    if (nbytes_baseband > UDP_MAX_BUFFER_SIZE) {
+      fprintf(stderr, "Error: trying to transmit too many samples (%d > %zu).\n", nbytes, UDP_MAX_BUFFER_SIZE);
       goto clean_exit;
     }
 
-    rf_zmq_info(handler->id, "Tx %d samples (%d B)\n", nsamples, nbytes);
+    rf_udp_info(handler->id, "Tx %d samples (%d B)\n", nsamples, nbytes);
 
     // return if transmitter is switched off
     if (handler->tx_off) {
@@ -915,7 +915,7 @@ int rf_zmq_send_timed_multi(void*  h,
 
     // check if this is a tx in the future
     if (has_time_spec) {
-      rf_zmq_info(handler->id, "    - tx time: %d + %.3f\n", secs, frac_secs);
+      rf_udp_info(handler->id, "    - tx time: %d + %.3f\n", secs, frac_secs);
 
       srsran_timestamp_t ts = {};
       srsran_timestamp_init(&ts, secs, frac_secs);
@@ -923,8 +923,8 @@ int rf_zmq_send_timed_multi(void*  h,
       int      num_tx_gap_samples = 0;
 
       for (int i = 0; i < handler->nof_channels; i++) {
-        if (rf_zmq_tx_is_running(&handler->transmitter[i])) {
-          num_tx_gap_samples = rf_zmq_tx_align(&handler->transmitter[i], tx_ts);
+        if (rf_udp_tx_is_running(&handler->transmitter[i])) {
+          num_tx_gap_samples = rf_udp_tx_align(&handler->transmitter[i], tx_ts);
         }
       }
 
@@ -933,7 +933,7 @@ int rf_zmq_send_timed_multi(void*  h,
                 "[udp] Error: tx time is %.3f ms in the past (%" PRIu64 " < %" PRIu64 ")\n",
                 -1000.0 * num_tx_gap_samples / handler->base_srate,
                 tx_ts,
-                (uint64_t)rf_zmq_tx_get_nsamples(&handler->transmitter[0]));
+                (uint64_t)rf_udp_tx_get_nsamples(&handler->transmitter[0]));
         goto clean_exit;
       }
     }
@@ -946,7 +946,7 @@ int rf_zmq_send_timed_multi(void*  h,
 
         // Interpolate if required
         if (decim_factor != 1) {
-          rf_zmq_info(handler->id,
+          rf_udp_info(handler->id,
                       "  - re-adjust bytes due to %dx interpolation %d --> %d samples)\n",
                       decim_factor,
                       nsamples,
@@ -974,12 +974,12 @@ int rf_zmq_send_timed_multi(void*  h,
         srsran_vec_sc_prod_cfc(buf, tx_gain, buf, nsamples_baseband);
 
         // Finally, transmit baseband
-        int n = rf_zmq_tx_baseband(&handler->transmitter[i], buf, nsamples_baseband);
+        int n = rf_udp_tx_baseband(&handler->transmitter[i], buf, nsamples_baseband);
         if (n == SRSRAN_ERROR) {
           goto clean_exit;
         }
       } else {
-        int n = rf_zmq_tx_zeros(&handler->transmitter[i], nsamples_baseband);
+        int n = rf_udp_tx_zeros(&handler->transmitter[i], nsamples_baseband);
         if (n == SRSRAN_ERROR) {
           goto clean_exit;
         }
@@ -995,34 +995,34 @@ clean_exit:
 }
 
 rf_dev_t srsran_rf_dev_udp = {"udp",
-                              rf_zmq_devname,
-                              rf_zmq_start_rx_stream,
-                              rf_zmq_stop_rx_stream,
-                              rf_zmq_flush_buffer,
-                              rf_zmq_has_rssi,
-                              rf_zmq_get_rssi,
-                              rf_zmq_suppress_stdout,
-                              rf_zmq_register_error_handler,
-                              rf_zmq_open,
-                              .srsran_rf_open_multi = rf_zmq_open_multi,
-                              rf_zmq_close,
-                              rf_zmq_set_rx_srate,
-                              rf_zmq_set_rx_gain,
-                              rf_zmq_set_rx_gain_ch,
-                              rf_zmq_set_tx_gain,
-                              rf_zmq_set_tx_gain_ch,
-                              rf_zmq_get_rx_gain,
-                              rf_zmq_get_tx_gain,
-                              rf_zmq_get_info,
-                              rf_zmq_set_rx_freq,
-                              rf_zmq_set_tx_srate,
-                              rf_zmq_set_tx_freq,
-                              rf_zmq_get_time,
+                              rf_udp_devname,
+                              rf_udp_start_rx_stream,
+                              rf_udp_stop_rx_stream,
+                              rf_udp_flush_buffer,
+                              rf_udp_has_rssi,
+                              rf_udp_get_rssi,
+                              rf_udp_suppress_stdout,
+                              rf_udp_register_error_handler,
+                              rf_udp_open,
+                              .srsran_rf_open_multi = rf_udp_open_multi,
+                              rf_udp_close,
+                              rf_udp_set_rx_srate,
+                              rf_udp_set_rx_gain,
+                              rf_udp_set_rx_gain_ch,
+                              rf_udp_set_tx_gain,
+                              rf_udp_set_tx_gain_ch,
+                              rf_udp_get_rx_gain,
+                              rf_udp_get_tx_gain,
+                              rf_udp_get_info,
+                              rf_udp_set_rx_freq,
+                              rf_udp_set_tx_srate,
+                              rf_udp_set_tx_freq,
+                              rf_udp_get_time,
                               NULL,
-                              rf_zmq_recv_with_time,
-                              rf_zmq_recv_with_time_multi,
-                              rf_zmq_send_timed,
-                              .srsran_rf_send_timed_multi = rf_zmq_send_timed_multi};
+                              rf_udp_recv_with_time,
+                              rf_udp_recv_with_time_multi,
+                              rf_udp_send_timed,
+                              .srsran_rf_send_timed_multi = rf_udp_send_timed_multi};
 
 #ifdef ENABLE_RF_PLUGINS
 int register_plugin(rf_dev_t** rf_api)

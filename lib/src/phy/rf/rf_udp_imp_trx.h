@@ -28,22 +28,22 @@
 
 /* Definitions */
 #define VERBOSE (0)
-#define ZMQ_MONITOR (0)
+#define UDP_MONITOR (0)
 #define NSAMPLES2NBYTES(X) (((uint32_t)(X)) * sizeof(cf_t))
 #define NBYTES2NSAMPLES(X) ((X) / sizeof(cf_t))
-#define ZMQ_MAX_BUFFER_SIZE (NSAMPLES2NBYTES(3072000)) // 10 subframes at 20 MHz
-#define ZMQ_TIMEOUT_MS (2000)
-#define ZMQ_BASERATE_DEFAULT_HZ (23040000)
-#define ZMQ_ID_STRLEN 16
-#define ZMQ_MAX_GAIN_DB (30.0f)
-#define ZMQ_MIN_GAIN_DB (0.0f)
+#define UDP_MAX_BUFFER_SIZE (NSAMPLES2NBYTES(3072000)) // 10 subframes at 20 MHz
+#define UDP_TIMEOUT_MS (2000)
+#define UDP_BASERATE_DEFAULT_HZ (23040000)
+#define UDP_ID_STRLEN 16
+#define UDP_MAX_GAIN_DB (30.0f)
+#define UDP_MIN_GAIN_DB (0.0f)
 
-typedef enum { ZMQ_TYPE_FC32 = 0, ZMQ_TYPE_SC16 } rf_zmq_format_t;
+typedef enum { UDP_TYPE_FC32 = 0, UDP_TYPE_SC16 } rf_udp_format_t;
 
 typedef struct {
-  char            id[ZMQ_ID_STRLEN];
+  char            id[UDP_ID_STRLEN];
   uint32_t        socket_type;
-  rf_zmq_format_t sample_format;
+  rf_udp_format_t sample_format;
   void*           sock;
   uint64_t        nsamples;
   bool            running;
@@ -52,14 +52,14 @@ typedef struct {
   void*           temp_buffer_convert;
   uint32_t        frequency_mhz;
   int32_t         sample_offset;
-} rf_zmq_tx_t;
+} rf_udp_tx_t;
 
 typedef struct {
-  char            id[ZMQ_ID_STRLEN];
+  char            id[UDP_ID_STRLEN];
   uint32_t        socket_type;
-  rf_zmq_format_t sample_format;
+  rf_udp_format_t sample_format;
   void*           sock;
-#if ZMQ_MONITOR
+#if UDP_MONITOR
   void* socket_monitor;
   bool  tx_connected;
 #endif
@@ -75,58 +75,58 @@ typedef struct {
   uint32_t            trx_timeout_ms;
   bool                log_trx_timeout;
   int32_t             sample_offset;
-} rf_zmq_rx_t;
+} rf_udp_rx_t;
 
 typedef struct {
   const char*     id;
   uint32_t        socket_type;
-  rf_zmq_format_t sample_format;
+  rf_udp_format_t sample_format;
   uint32_t        frequency_mhz;
   bool            fail_on_disconnect;
   uint32_t        trx_timeout_ms;
   bool            log_trx_timeout;
   int32_t         sample_offset; ///< offset in samples
-} rf_zmq_opts_t;
+} rf_udp_opts_t;
 
 /*
  * Common functions
  */
-SRSRAN_API void rf_zmq_info(char* id, const char* format, ...);
+SRSRAN_API void rf_udp_info(char* id, const char* format, ...);
 
-SRSRAN_API void rf_zmq_error(char* id, const char* format, ...);
+SRSRAN_API void rf_udp_error(char* id, const char* format, ...);
 
-SRSRAN_API int rf_zmq_handle_error(char* id, const char* text);
+SRSRAN_API int rf_udp_handle_error(char* id, const char* text);
 
 /*
  * Transmitter functions
  */
-SRSRAN_API int rf_zmq_tx_open(rf_zmq_tx_t* q, rf_zmq_opts_t opts, void* zmq_ctx, char* sock_args);
+SRSRAN_API int rf_udp_tx_open(rf_udp_tx_t* q, rf_udp_opts_t opts, void* udp_ctx, char* sock_args);
 
-SRSRAN_API int rf_zmq_tx_align(rf_zmq_tx_t* q, uint64_t ts);
+SRSRAN_API int rf_udp_tx_align(rf_udp_tx_t* q, uint64_t ts);
 
-SRSRAN_API int rf_zmq_tx_baseband(rf_zmq_tx_t* q, cf_t* buffer, uint32_t nsamples);
+SRSRAN_API int rf_udp_tx_baseband(rf_udp_tx_t* q, cf_t* buffer, uint32_t nsamples);
 
-SRSRAN_API int rf_zmq_tx_get_nsamples(rf_zmq_tx_t* q);
+SRSRAN_API int rf_udp_tx_get_nsamples(rf_udp_tx_t* q);
 
-SRSRAN_API int rf_zmq_tx_zeros(rf_zmq_tx_t* q, uint32_t nsamples);
+SRSRAN_API int rf_udp_tx_zeros(rf_udp_tx_t* q, uint32_t nsamples);
 
-SRSRAN_API bool rf_zmq_tx_match_freq(rf_zmq_tx_t* q, uint32_t freq_hz);
+SRSRAN_API bool rf_udp_tx_match_freq(rf_udp_tx_t* q, uint32_t freq_hz);
 
-SRSRAN_API void rf_zmq_tx_close(rf_zmq_tx_t* q);
+SRSRAN_API void rf_udp_tx_close(rf_udp_tx_t* q);
 
-SRSRAN_API bool rf_zmq_tx_is_running(rf_zmq_tx_t* q);
+SRSRAN_API bool rf_udp_tx_is_running(rf_udp_tx_t* q);
 
 /*
  * Receiver functions
  */
-SRSRAN_API int rf_zmq_rx_open(rf_zmq_rx_t* q, rf_zmq_opts_t opts, void* zmq_ctx, char* sock_args);
+SRSRAN_API int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, void* udp_ctx, char* sock_args);
 
-SRSRAN_API int rf_zmq_rx_baseband(rf_zmq_rx_t* q, cf_t* buffer, uint32_t nsamples);
+SRSRAN_API int rf_udp_rx_baseband(rf_udp_rx_t* q, cf_t* buffer, uint32_t nsamples);
 
-SRSRAN_API bool rf_zmq_rx_match_freq(rf_zmq_rx_t* q, uint32_t freq_hz);
+SRSRAN_API bool rf_udp_rx_match_freq(rf_udp_rx_t* q, uint32_t freq_hz);
 
-SRSRAN_API void rf_zmq_rx_close(rf_zmq_rx_t* q);
+SRSRAN_API void rf_udp_rx_close(rf_udp_rx_t* q);
 
-SRSRAN_API bool rf_zmq_rx_is_running(rf_zmq_rx_t* q);
+SRSRAN_API bool rf_udp_rx_is_running(rf_udp_rx_t* q);
 
 #endif // SRSRAN_RF_UDP_IMP_TRX_H

@@ -19,31 +19,31 @@
  *
  */
 
-#include "rf_zmq_imp_trx.h"
+#include "rf_udp_imp_trx.h"
 #include <inttypes.h>
 #include <srsran/phy/utils/vector.h>
 #include <stdlib.h>
 #include <string.h>
 #include <zmq.h>
 
-static void* rf_zmq_async_rx_thread(void* h)
+static void* rf_udp_async_rx_thread(void* h)
 {
-  rf_zmq_rx_t* q = (rf_zmq_rx_t*)h;
+  rf_udp_rx_t* q = (rf_udp_rx_t*)h;
 
-  while (q->sock && rf_zmq_rx_is_running(q)) {
+  while (q->sock && rf_udp_rx_is_running(q)) {
     int     nbytes = 0;
     int     n      = SRSRAN_ERROR;
     uint8_t dummy  = 0xFF;
 
-    rf_zmq_info(q->id, "-- ASYNC RX wait...\n");
+    rf_udp_info(q->id, "-- ASYNC RX wait...\n");
 
     // Send request if socket type is REQUEST
     if (q->socket_type == ZMQ_REQ) {
-      while (n < 0 && rf_zmq_rx_is_running(q)) {
-        rf_zmq_info(q->id, " - tx'ing rx request\n");
+      while (n < 0 && rf_udp_rx_is_running(q)) {
+        rf_udp_info(q->id, " - tx'ing rx request\n");
         n = zmq_send(q->sock, &dummy, sizeof(dummy), 0);
         if (n < 0) {
-          if (rf_zmq_handle_error(q->id, "synchronous rx request send")) {
+          if (rf_udp_handle_error(q->id, "synchronous rx request send")) {
             return NULL;
           }
         }
@@ -53,17 +53,17 @@ static void* rf_zmq_async_rx_thread(void* h)
     }
 
     // Receive baseband
-    for (n = (n < 0) ? 0 : -1; n < 0 && rf_zmq_rx_is_running(q);) {
-      n = zmq_recv(q->sock, q->temp_buffer, ZMQ_MAX_BUFFER_SIZE, 0);
+    for (n = (n < 0) ? 0 : -1; n < 0 && rf_udp_rx_is_running(q);) {
+      n = zmq_recv(q->sock, q->temp_buffer, UDP_MAX_BUFFER_SIZE, 0);
       if (n == -1) {
-        if (rf_zmq_handle_error(q->id, "asynchronous rx baseband receive")) {
+        if (rf_udp_handle_error(q->id, "asynchronous rx baseband receive")) {
           return NULL;
         }
 
-      } else if (n > ZMQ_MAX_BUFFER_SIZE) {
+      } else if (n > UDP_MAX_BUFFER_SIZE) {
         fprintf(stderr,
-                "[zmq] Error: receiver expected <= %zu bytes and received %d at channel %d.\n",
-                ZMQ_MAX_BUFFER_SIZE,
+                "[udp] Error: receiver expected <= %zu bytes and received %d at channel %d.\n",
+                UDP_MAX_BUFFER_SIZE,
                 n,
                 0);
         return NULL;
@@ -77,7 +77,7 @@ static void* rf_zmq_async_rx_thread(void* h)
       n = -1;
 
       // Try to write in ring buffer
-      while (n < 0 && rf_zmq_rx_is_running(q)) {
+      while (n < 0 && rf_udp_rx_is_running(q)) {
         n = srsran_ringbuffer_write_timed(&q->ringbuffer, q->temp_buffer, nbytes, q->trx_timeout_ms);
         if (n == SRSRAN_ERROR_TIMEOUT && q->log_trx_timeout) {
           fprintf(stderr, "Error: timeout writing samples to ringbuffer after %dms\n", q->trx_timeout_ms);
@@ -86,7 +86,7 @@ static void* rf_zmq_async_rx_thread(void* h)
 
       // Check write
       if (nbytes == n) {
-        rf_zmq_info(q->id,
+        rf_udp_info(q->id,
                     "   - received %d baseband samples (%d B). %d samples available.\n",
                     NBYTES2NSAMPLES(n),
                     n,
@@ -98,22 +98,22 @@ static void* rf_zmq_async_rx_thread(void* h)
   return NULL;
 }
 
-int rf_zmq_rx_open(rf_zmq_rx_t* q, rf_zmq_opts_t opts, void* zmq_ctx, char* sock_args)
+int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, void* udp_ctx, char* sock_args)
 {
   int ret = SRSRAN_ERROR;
 
   if (q) {
     // Zero object
-    bzero(q, sizeof(rf_zmq_rx_t));
+    bzero(q, sizeof(rf_udp_rx_t));
 
     // Copy id
-    strncpy(q->id, opts.id, ZMQ_ID_STRLEN - 1);
-    q->id[ZMQ_ID_STRLEN - 1] = '\0';
+    strncpy(q->id, opts.id, UDP_ID_STRLEN - 1);
+    q->id[UDP_ID_STRLEN - 1] = '\0';
 
     // Create socket
-    q->sock = zmq_socket(zmq_ctx, opts.socket_type);
+    q->sock = zmq_socket(udp_ctx, opts.socket_type);
     if (!q->sock) {
-      fprintf(stderr, "[zmq] Error: creating transmitter socket\n");
+      fprintf(stderr, "[udp] Error: creating transmitter socket\n");
       goto clean_exit;
     }
     q->socket_type        = opts.socket_type;
@@ -128,7 +128,7 @@ int rf_zmq_rx_open(rf_zmq_rx_t* q, rf_zmq_opts_t opts, void* zmq_ctx, char* sock
       zmq_setsockopt(q->sock, ZMQ_SUBSCRIBE, "", 0);
     }
 
-#if ZMQ_MONITOR
+#if UDP_MONITOR
     // Monitor all events (monitoring only works over inproc://)
     ret = zmq_socket_monitor(q->sock, "inproc://monitor-client", ZMQ_EVENT_ALL);
     if (ret == -1) {
@@ -137,15 +137,15 @@ int rf_zmq_rx_open(rf_zmq_rx_t* q, rf_zmq_opts_t opts, void* zmq_ctx, char* sock
     }
 
     // create socket socket for monitoring and connect monitor
-    q->socket_monitor = zmq_socket(zmq_ctx, ZMQ_PAIR);
+    q->socket_monitor = zmq_socket(udp_ctx, ZMQ_PAIR);
     ret               = zmq_connect(q->socket_monitor, "inproc://monitor-client");
     if (ret) {
       fprintf(stderr, "Error: connecting monitor socket: %s\n", zmq_strerror(zmq_errno()));
       goto clean_exit;
     }
-#endif // ZMQ_MONITOR
+#endif // UDP_MONITOR
 
-    rf_zmq_info(q->id, "Connecting receiver: %s\n", sock_args);
+    rf_udp_info(q->id, "Connecting receiver: %s\n", sock_args);
 
     ret = zmq_connect(q->sock, sock_args);
     if (ret) {
@@ -172,18 +172,18 @@ int rf_zmq_rx_open(rf_zmq_rx_t* q, rf_zmq_opts_t opts, void* zmq_ctx, char* sock
       }
     }
 
-    if (srsran_ringbuffer_init(&q->ringbuffer, ZMQ_MAX_BUFFER_SIZE)) {
+    if (srsran_ringbuffer_init(&q->ringbuffer, UDP_MAX_BUFFER_SIZE)) {
       fprintf(stderr, "Error: initiating ringbuffer\n");
       goto clean_exit;
     }
 
-    q->temp_buffer = srsran_vec_malloc(ZMQ_MAX_BUFFER_SIZE);
+    q->temp_buffer = srsran_vec_malloc(UDP_MAX_BUFFER_SIZE);
     if (!q->temp_buffer) {
       fprintf(stderr, "Error: allocating rx buffer\n");
       goto clean_exit;
     }
 
-    q->temp_buffer_convert = srsran_vec_malloc(ZMQ_MAX_BUFFER_SIZE);
+    q->temp_buffer_convert = srsran_vec_malloc(UDP_MAX_BUFFER_SIZE);
     if (!q->temp_buffer_convert) {
       fprintf(stderr, "Error: allocating rx buffer\n");
       goto clean_exit;
@@ -195,7 +195,7 @@ int rf_zmq_rx_open(rf_zmq_rx_t* q, rf_zmq_opts_t opts, void* zmq_ctx, char* sock
     }
 
     q->running = true;
-    if (pthread_create(&q->thread, NULL, rf_zmq_async_rx_thread, q)) {
+    if (pthread_create(&q->thread, NULL, rf_udp_async_rx_thread, q)) {
       fprintf(stderr, "Error: creating thread\n");
       goto clean_exit;
     }
@@ -207,18 +207,18 @@ clean_exit:
   return ret;
 }
 
-int rf_zmq_rx_baseband(rf_zmq_rx_t* q, cf_t* buffer, uint32_t nsamples)
+int rf_udp_rx_baseband(rf_udp_rx_t* q, cf_t* buffer, uint32_t nsamples)
 {
   void*    dst_buffer = buffer;
   uint32_t sample_sz  = sizeof(cf_t);
-  if (q->sample_format != ZMQ_TYPE_FC32) {
+  if (q->sample_format != UDP_TYPE_FC32) {
     dst_buffer = q->temp_buffer_convert;
     sample_sz  = 2 * sizeof(short);
   }
 
   // If the read needs to be delayed
   while (q->sample_offset > 0) {
-    uint32_t n_offset = SRSRAN_MIN(q->sample_offset, NBYTES2NSAMPLES(ZMQ_MAX_BUFFER_SIZE));
+    uint32_t n_offset = SRSRAN_MIN(q->sample_offset, NBYTES2NSAMPLES(UDP_MAX_BUFFER_SIZE));
     srsran_vec_zero(q->temp_buffer, n_offset);
     int n = srsran_ringbuffer_write(&q->ringbuffer, q->temp_buffer, (int)(n_offset * sample_sz));
     if (n < SRSRAN_SUCCESS) {
@@ -229,7 +229,7 @@ int rf_zmq_rx_baseband(rf_zmq_rx_t* q, cf_t* buffer, uint32_t nsamples)
 
   // If the read needs to be advanced
   while (q->sample_offset < 0) {
-    uint32_t n_offset = SRSRAN_MIN(-q->sample_offset, NBYTES2NSAMPLES(ZMQ_MAX_BUFFER_SIZE));
+    uint32_t n_offset = SRSRAN_MIN(-q->sample_offset, NBYTES2NSAMPLES(UDP_MAX_BUFFER_SIZE));
     int      n =
         srsran_ringbuffer_read_timed(&q->ringbuffer, q->temp_buffer, (int)(n_offset * sample_sz), q->trx_timeout_ms);
     if (n < SRSRAN_SUCCESS) {
@@ -243,14 +243,14 @@ int rf_zmq_rx_baseband(rf_zmq_rx_t* q, cf_t* buffer, uint32_t nsamples)
     return n;
   }
 
-  if (q->sample_format == ZMQ_TYPE_SC16) {
+  if (q->sample_format == UDP_TYPE_SC16) {
     srsran_vec_convert_if(dst_buffer, INT16_MAX, (float*)buffer, 2 * nsamples);
   }
 
   return n;
 }
 
-bool rf_zmq_rx_match_freq(rf_zmq_rx_t* q, uint32_t freq_hz)
+bool rf_udp_rx_match_freq(rf_udp_rx_t* q, uint32_t freq_hz)
 {
   bool ret = false;
   if (q) {
@@ -259,9 +259,9 @@ bool rf_zmq_rx_match_freq(rf_zmq_rx_t* q, uint32_t freq_hz)
   return ret;
 }
 
-void rf_zmq_rx_close(rf_zmq_rx_t* q)
+void rf_udp_rx_close(rf_udp_rx_t* q)
 {
-  rf_zmq_info(q->id, "Closing ...\n");
+  rf_udp_info(q->id, "Closing ...\n");
 
   pthread_mutex_lock(&q->mutex);
   q->running = false;
@@ -294,10 +294,10 @@ void rf_zmq_rx_close(rf_zmq_rx_t* q)
     zmq_close(q->socket_monitor);
     q->socket_monitor = NULL;
   }
-#endif // ZMQ_MONITOR
+#endif // UDP_MONITOR
 }
 
-bool rf_zmq_rx_is_running(rf_zmq_rx_t* q)
+bool rf_udp_rx_is_running(rf_udp_rx_t* q)
 {
   if (!q) {
     return false;

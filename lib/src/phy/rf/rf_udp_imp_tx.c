@@ -19,7 +19,7 @@
  *
  */
 
-#include "rf_zmq_imp_trx.h"
+#include "rf_udp_imp_trx.h"
 #include <inttypes.h>
 #include <srsran/config.h>
 #include <srsran/phy/utils/vector.h>
@@ -27,22 +27,22 @@
 #include <string.h>
 #include <zmq.h>
 
-int rf_zmq_tx_open(rf_zmq_tx_t* q, rf_zmq_opts_t opts, void* zmq_ctx, char* sock_args)
+int rf_udp_tx_open(rf_udp_tx_t* q, rf_udp_opts_t opts, void* udp_ctx, char* sock_args)
 {
   int ret = SRSRAN_ERROR;
 
   if (q) {
     // Zero object
-    bzero(q, sizeof(rf_zmq_tx_t));
+    bzero(q, sizeof(rf_udp_tx_t));
 
     // Copy id
-    strncpy(q->id, opts.id, ZMQ_ID_STRLEN - 1);
-    q->id[ZMQ_ID_STRLEN - 1] = '\0';
+    strncpy(q->id, opts.id, UDP_ID_STRLEN - 1);
+    q->id[UDP_ID_STRLEN - 1] = '\0';
 
     // Create socket
-    q->sock = zmq_socket(zmq_ctx, opts.socket_type);
+    q->sock = zmq_socket(udp_ctx, opts.socket_type);
     if (!q->sock) {
-      fprintf(stderr, "[zmq] Error: creating transmitter socket\n");
+      fprintf(stderr, "[udp] Error: creating transmitter socket\n");
       goto clean_exit;
     }
     q->socket_type   = opts.socket_type;
@@ -50,7 +50,7 @@ int rf_zmq_tx_open(rf_zmq_tx_t* q, rf_zmq_opts_t opts, void* zmq_ctx, char* sock
     q->frequency_mhz = opts.frequency_mhz;
     q->sample_offset = opts.sample_offset;
 
-    rf_zmq_info(q->id, "Binding transmitter: %s\n", sock_args);
+    rf_udp_info(q->id, "Binding transmitter: %s\n", sock_args);
 
     ret = zmq_bind(q->sock, sock_args);
     if (ret) {
@@ -82,18 +82,18 @@ int rf_zmq_tx_open(rf_zmq_tx_t* q, rf_zmq_opts_t opts, void* zmq_ctx, char* sock
       goto clean_exit;
     }
 
-    q->temp_buffer_convert = srsran_vec_malloc(ZMQ_MAX_BUFFER_SIZE);
+    q->temp_buffer_convert = srsran_vec_malloc(UDP_MAX_BUFFER_SIZE);
     if (!q->temp_buffer_convert) {
       fprintf(stderr, "Error: allocating rx buffer\n");
       goto clean_exit;
     }
 
-    q->zeros = srsran_vec_malloc(ZMQ_MAX_BUFFER_SIZE);
+    q->zeros = srsran_vec_malloc(UDP_MAX_BUFFER_SIZE);
     if (!q->zeros) {
       fprintf(stderr, "Error: allocating zeros\n");
       goto clean_exit;
     }
-    bzero(q->zeros, ZMQ_MAX_BUFFER_SIZE);
+    bzero(q->zeros, UDP_MAX_BUFFER_SIZE);
 
     q->running = true;
 
@@ -104,7 +104,7 @@ clean_exit:
   return ret;
 }
 
-static int _rf_zmq_tx_baseband(rf_zmq_tx_t* q, cf_t* buffer, uint32_t nsamples)
+static int _rf_udp_tx_baseband(rf_udp_tx_t* q, cf_t* buffer, uint32_t nsamples)
 {
   int n = SRSRAN_ERROR;
 
@@ -114,14 +114,14 @@ static int _rf_zmq_tx_baseband(rf_zmq_tx_t* q, cf_t* buffer, uint32_t nsamples)
       uint8_t dummy;
       n = zmq_recv(q->sock, &dummy, sizeof(dummy), 0);
       if (n < 0) {
-        if (rf_zmq_handle_error(q->id, "tx request receive")) {
+        if (rf_udp_handle_error(q->id, "tx request receive")) {
           n = SRSRAN_ERROR;
           goto clean_exit;
         }
       } else {
         // Tx request received successful
-        rf_zmq_info(q->id, " - tx request received\n");
-        rf_zmq_info(q->id, " - sending %d samples (%d B)\n", nsamples, NSAMPLES2NBYTES(nsamples));
+        rf_udp_info(q->id, " - tx request received\n");
+        rf_udp_info(q->id, " - sending %d samples (%d B)\n", nsamples, NSAMPLES2NBYTES(nsamples));
       }
     } else {
       n = 1;
@@ -131,7 +131,7 @@ static int _rf_zmq_tx_baseband(rf_zmq_tx_t* q, cf_t* buffer, uint32_t nsamples)
     void*    buf       = (buffer) ? buffer : q->zeros;
     uint32_t sample_sz = sizeof(cf_t);
 
-    if (q->sample_format == ZMQ_TYPE_SC16) {
+    if (q->sample_format == UDP_TYPE_SC16) {
       buf       = q->temp_buffer_convert;
       sample_sz = 2 * sizeof(short);
       srsran_vec_convert_fi((float*)buffer, INT16_MAX, (short*)q->temp_buffer_convert, 2 * nsamples);
@@ -141,13 +141,13 @@ static int _rf_zmq_tx_baseband(rf_zmq_tx_t* q, cf_t* buffer, uint32_t nsamples)
     if (n > 0) {
       n = zmq_send(q->sock, buf, (size_t)sample_sz * nsamples, 0);
       if (n < 0) {
-        if (rf_zmq_handle_error(q->id, "tx baseband send")) {
+        if (rf_udp_handle_error(q->id, "tx baseband send")) {
           n = SRSRAN_ERROR;
           goto clean_exit;
         }
       } else if (n != NSAMPLES2NBYTES(nsamples)) {
-        rf_zmq_error(q->id,
-                     "[zmq] Error: transmitter expected %d bytes and sent %d. %s.\n",
+        rf_udp_error(q->id,
+                     "[udp] Error: transmitter expected %d bytes and sent %d. %s.\n",
                      NSAMPLES2NBYTES(nsamples),
                      n,
                      strerror(zmq_errno()));
@@ -167,15 +167,15 @@ clean_exit:
   return n;
 }
 
-int rf_zmq_tx_align(rf_zmq_tx_t* q, uint64_t ts)
+int rf_udp_tx_align(rf_udp_tx_t* q, uint64_t ts)
 {
   pthread_mutex_lock(&q->mutex);
 
   int64_t nsamples = (int64_t)ts - (int64_t)q->nsamples;
 
   if (nsamples > 0) {
-    rf_zmq_info(q->id, " - Detected Tx gap of %d samples.\n", nsamples);
-    _rf_zmq_tx_baseband(q, q->zeros, (uint32_t)nsamples);
+    rf_udp_info(q->id, " - Detected Tx gap of %d samples.\n", nsamples);
+    _rf_udp_tx_baseband(q, q->zeros, (uint32_t)nsamples);
   }
 
   pthread_mutex_unlock(&q->mutex);
@@ -183,14 +183,14 @@ int rf_zmq_tx_align(rf_zmq_tx_t* q, uint64_t ts)
   return (int)nsamples;
 }
 
-int rf_zmq_tx_baseband(rf_zmq_tx_t* q, cf_t* buffer, uint32_t nsamples)
+int rf_udp_tx_baseband(rf_udp_tx_t* q, cf_t* buffer, uint32_t nsamples)
 {
   int n;
 
   pthread_mutex_lock(&q->mutex);
 
   if (q->sample_offset > 0) {
-    _rf_zmq_tx_baseband(q, q->zeros, (uint32_t)q->sample_offset);
+    _rf_udp_tx_baseband(q, q->zeros, (uint32_t)q->sample_offset);
     q->sample_offset = 0;
   } else if (q->sample_offset < 0) {
     n = SRSRAN_MIN(-q->sample_offset, nsamples);
@@ -202,14 +202,14 @@ int rf_zmq_tx_baseband(rf_zmq_tx_t* q, cf_t* buffer, uint32_t nsamples)
     }
   }
 
-  n = _rf_zmq_tx_baseband(q, buffer, nsamples);
+  n = _rf_udp_tx_baseband(q, buffer, nsamples);
 
   pthread_mutex_unlock(&q->mutex);
 
   return n;
 }
 
-int rf_zmq_tx_get_nsamples(rf_zmq_tx_t* q)
+int rf_udp_tx_get_nsamples(rf_udp_tx_t* q)
 {
   pthread_mutex_lock(&q->mutex);
   int ret = q->nsamples;
@@ -217,19 +217,19 @@ int rf_zmq_tx_get_nsamples(rf_zmq_tx_t* q)
   return ret;
 }
 
-int rf_zmq_tx_zeros(rf_zmq_tx_t* q, uint32_t nsamples)
+int rf_udp_tx_zeros(rf_udp_tx_t* q, uint32_t nsamples)
 {
   pthread_mutex_lock(&q->mutex);
 
-  rf_zmq_info(q->id, " - Tx %d Zeros.\n", nsamples);
-  _rf_zmq_tx_baseband(q, q->zeros, (uint32_t)nsamples);
+  rf_udp_info(q->id, " - Tx %d Zeros.\n", nsamples);
+  _rf_udp_tx_baseband(q, q->zeros, (uint32_t)nsamples);
 
   pthread_mutex_unlock(&q->mutex);
 
   return (int)nsamples;
 }
 
-bool rf_zmq_tx_match_freq(rf_zmq_tx_t* q, uint32_t freq_hz)
+bool rf_udp_tx_match_freq(rf_udp_tx_t* q, uint32_t freq_hz)
 {
   bool ret = false;
   if (q) {
@@ -238,7 +238,7 @@ bool rf_zmq_tx_match_freq(rf_zmq_tx_t* q, uint32_t freq_hz)
   return ret;
 }
 
-void rf_zmq_tx_close(rf_zmq_tx_t* q)
+void rf_udp_tx_close(rf_udp_tx_t* q)
 {
   pthread_mutex_lock(&q->mutex);
   q->running = false;
@@ -255,12 +255,12 @@ void rf_zmq_tx_close(rf_zmq_tx_t* q)
   }
 
   if (q->sock) {
-    zmq_close(q->sock);
+    udp_close(q->sock);
     q->sock = NULL;
   }
 }
 
-bool rf_zmq_tx_is_running(rf_zmq_tx_t* q)
+bool rf_udp_tx_is_running(rf_udp_tx_t* q)
 {
   if (!q) {
     return false;
