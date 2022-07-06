@@ -218,6 +218,8 @@ int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
     handler->nof_channels     = nof_channels;
     strcpy(handler->id, "udp\0");
 
+    printf("[UDP] Starting UDP RF plugin\n");
+
     rf_udp_opts_t rx_opts = {};
     rf_udp_opts_t tx_opts = {};
     rx_opts.socket_type   = ZMQ_REQ;
