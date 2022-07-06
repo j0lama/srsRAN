@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef SRSRAN_RF_ZMQ_IMP_H_
-#define SRSRAN_RF_ZMQ_IMP_H_
+#ifndef SRSRAN_RF_UDP_IMP_H_
+#define SRSRAN_RF_UDP_IMP_H_
 
 #include <inttypes.h>
 #include <stdbool.h>
@@ -106,4 +106,4 @@ SRSRAN_API int rf_zmq_send_timed_multi(void*  h,
                                        bool   is_start_of_burst,
                                        bool   is_end_of_burst);
 
-#endif /* SRSRAN_RF_ZMQ_IMP_H_ */
+#endif /* SRSRAN_RF_UDP_IMP_H_ */

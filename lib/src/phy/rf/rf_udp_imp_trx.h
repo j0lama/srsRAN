@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef SRSRAN_RF_ZMQ_IMP_TRX_H
-#define SRSRAN_RF_ZMQ_IMP_TRX_H
+#ifndef SRSRAN_RF_UDP_IMP_TRX_H
+#define SRSRAN_RF_UDP_IMP_TRX_H
 
 #include <pthread.h>
 #include <srsran/phy/utils/ringbuffer.h>
@@ -129,4 +129,4 @@ SRSRAN_API void rf_zmq_rx_close(rf_zmq_rx_t* q);
 
 SRSRAN_API bool rf_zmq_rx_is_running(rf_zmq_rx_t* q);
 
-#endif // SRSRAN_RF_ZMQ_IMP_TRX_H
+#endif // SRSRAN_RF_UDP_IMP_TRX_H
