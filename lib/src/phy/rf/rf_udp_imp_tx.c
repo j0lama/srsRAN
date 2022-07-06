@@ -255,7 +255,7 @@ void rf_udp_tx_close(rf_udp_tx_t* q)
   }
 
   if (q->sock) {
-    udp_close(q->sock);
+    zmq_close(q->sock);
     q->sock = NULL;
   }
 }
