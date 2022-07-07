@@ -133,12 +133,12 @@ int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, char* sock_args)
     if (opts.trx_timeout_ms) {
       int timeout = (int) opts.trx_timeout_ms;
       if (setsockopt(q->sock, IPPROTO_UDP, SO_RCVTIMEO, (void *) &timeout, (socklen_t) sizeof(timeout)) == -1) {
-        fprintf(stderr, "Error: setting receive timeout on rx socket\n");
+        fprintf(stderr, "Error: setting receive timeout on rx socket (%s)\n", strerror(errno));
         goto clean_exit;
       }
 
       if (setsockopt(q->sock, IPPROTO_UDP, SO_SNDTIMEO, (void *) &timeout, (socklen_t) sizeof(timeout)) == -1) {
-        fprintf(stderr, "Error: setting send timeout on rx socket\n");
+        fprintf(stderr, "Error: setting send timeout on rx socket (%s)\n", strerror(errno));
         goto clean_exit;
       }
 
@@ -146,7 +146,7 @@ int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, char* sock_args)
       lin.l_onoff = 1;
       lin.l_linger = 0;
       if (setsockopt(q->sock, IPPROTO_UDP, SO_LINGER, (void *) &lin, (socklen_t) sizeof(lin)) == -1) {
-        fprintf(stderr, "Error: setting linger timeout on rx socket\n");
+        fprintf(stderr, "Error: setting linger timeout on rx socket (%s)\n", strerror(errno));
         goto clean_exit;
       }
     }
