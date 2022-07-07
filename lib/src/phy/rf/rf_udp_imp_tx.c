@@ -29,6 +29,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 
 int rf_udp_tx_open(rf_udp_tx_t* q, rf_udp_opts_t opts, char* sock_args)
 {
@@ -63,7 +64,7 @@ int rf_udp_tx_open(rf_udp_tx_t* q, rf_udp_opts_t opts, char* sock_args)
        fprintf(stderr, "[udp] Error: invalid IP address (%s)\n", sock_args);
         goto clean_exit;
     }
-    bzero(&(dpu_addr.sin_zero),8);
+    bzero(&(addr.sin_zero),8);
 
     if(connect(q->sock, (struct sockaddr *) &addr, sizeof(struct sockaddr)) < 0) {
       fprintf(stderr, "Error: connecting transmitter socket (%s): %s\n", sock_args, strerror(errno));
@@ -71,13 +72,13 @@ int rf_udp_tx_open(rf_udp_tx_t* q, rf_udp_opts_t opts, char* sock_args)
     }
 
     if (opts.trx_timeout_ms) {
-      int timeout = opts.trx_timeout_ms;
-      if (setsockopt(q->sock, SO_RCVTIMEO, &timeout, sizeof(timeout)) == -1) {
+      int timeout = (int) opts.trx_timeout_ms;
+      if (setsockopt(q->sock, IPPROTO_UDP, SO_RCVTIMEO, (void *) &timeout, (socklen_t) sizeof(timeout)) == -1) {
         fprintf(stderr, "Error: setting receive timeout on tx socket\n");
         goto clean_exit;
       }
 
-      if (setsockopt(q->sock, SO_SNDTIMEO, &timeout, sizeof(timeout)) == -1) {
+      if (setsockopt(q->sock, IPPROTO_UDP, SO_SNDTIMEO, (void *) &timeout, (socklen_t) sizeof(timeout)) == -1) {
         fprintf(stderr, "Error: setting send timeout on tx socket\n");
         goto clean_exit;
       }
@@ -85,7 +86,7 @@ int rf_udp_tx_open(rf_udp_tx_t* q, rf_udp_opts_t opts, char* sock_args)
       struct linger lin;
       lin.l_onoff = 1;
       lin.l_linger = 0;
-      if (setsockopt(q->sock, SO_LINGER, &lin, sizeof(lin)) == -1) {
+      if (setsockopt(q->sock, IPPROTO_UDP, SO_LINGER, (void *) &lin, (socklen_t) sizeof(lin)) == -1) {
         fprintf(stderr, "Error: setting linger timeout on tx socket\n");
         goto clean_exit;
       }

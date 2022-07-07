@@ -24,7 +24,11 @@
 #include <srsran/phy/utils/vector.h>
 #include <stdlib.h>
 #include <string.h>
-#include <zmq.h>
+#include <errno.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 
 static void* rf_udp_async_rx_thread(void* h)
 {
@@ -87,6 +91,7 @@ static void* rf_udp_async_rx_thread(void* h)
 int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, char* sock_args)
 {
   int ret = SRSRAN_ERROR;
+  struct sockaddr_in addr;
 
   if (q) {
     // Zero object
@@ -119,7 +124,7 @@ int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, char* sock_args)
        fprintf(stderr, "[udp] Error: invalid IP address (%s)\n", sock_args);
         goto clean_exit;
     }
-    bzero(&(dpu_addr.sin_zero),8);
+    bzero(&(addr.sin_zero),8);
 
     if (bind(q->sock,(struct sockaddr *)&addr, sizeof(struct sockaddr)) == -1) {
       fprintf(stderr, "Error: binding receiver socket: %s\n", strerror(errno));
@@ -127,13 +132,13 @@ int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, char* sock_args)
     }
 
     if (opts.trx_timeout_ms) {
-      int timeout = opts.trx_timeout_ms;
-      if (setsockopt(q->sock, SO_RCVTIMEO, &timeout, sizeof(timeout)) == -1) {
+      int timeout = (int) opts.trx_timeout_ms;
+      if (setsockopt(q->sock, IPPROTO_UDP, SO_RCVTIMEO, (void *) &timeout, (socklen_t) sizeof(timeout)) == -1) {
         fprintf(stderr, "Error: setting receive timeout on rx socket\n");
         goto clean_exit;
       }
 
-      if (setsockopt(q->sock, SO_SNDTIMEO, &timeout, sizeof(timeout)) == -1) {
+      if (setsockopt(q->sock, IPPROTO_UDP, SO_SNDTIMEO, (void *) &timeout, (socklen_t) sizeof(timeout)) == -1) {
         fprintf(stderr, "Error: setting send timeout on rx socket\n");
         goto clean_exit;
       }
@@ -141,7 +146,7 @@ int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, char* sock_args)
       struct linger lin;
       lin.l_onoff = 1;
       lin.l_linger = 0;
-      if (setsockopt(q->sock, SO_LINGER, &lin, sizeof(lin)) == -1) {
+      if (setsockopt(q->sock, IPPROTO_UDP, SO_LINGER, (void *) &lin, (socklen_t) sizeof(lin)) == -1) {
         fprintf(stderr, "Error: setting linger timeout on rx socket\n");
         goto clean_exit;
       }
