@@ -30,7 +30,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <zmq.h>
+#include <errno.h>
 
 typedef struct {
   // Common attributes
@@ -50,7 +50,6 @@ typedef struct {
   char     id[RF_PARAM_LEN];
 
   // Server
-  void*       context;
   rf_udp_tx_t transmitter[SRSRAN_MAX_CHANNELS];
   rf_udp_rx_t receiver[SRSRAN_MAX_CHANNELS];
 
@@ -127,19 +126,17 @@ int rf_udp_handle_error(char* id, const char* text)
 {
   int ret = SRSRAN_SUCCESS;
 
-  int err = zmq_errno();
-
   switch (err) {
     // handled errors
     case EFSM:
     case EAGAIN:
-      rf_udp_info(id, "Warning %s: %s\n", text, zmq_strerror(err));
+      rf_udp_info(id, "Warning %s: %s\n", text, strerror(errno));
       break;
 
     // critical non-handled errors
     default:
       ret = SRSRAN_ERROR;
-      rf_udp_error(id, "Error %s: %s\n", text, zmq_strerror(err));
+      rf_udp_error(id, "Error %s: %s\n", text, strerror(errno));
   }
 
   return ret;
@@ -218,12 +215,8 @@ int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
     handler->nof_channels     = nof_channels;
     strcpy(handler->id, "udp\0");
 
-    printf("[UDP] Starting UDP RF plugin\n");
-
     rf_udp_opts_t rx_opts = {};
     rf_udp_opts_t tx_opts = {};
-    rx_opts.socket_type   = ZMQ_REQ;
-    tx_opts.socket_type   = ZMQ_REP;
     tx_opts.id            = handler->id;
     rx_opts.id            = handler->id;
 
@@ -248,48 +241,12 @@ int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
       // id
       parse_string(args, "id", -1, handler->id);
 
-      // rx_type
-      char tmp[RF_PARAM_LEN] = {0};
-      if (parse_string(args, "rx_type", -1, tmp) == SRSRAN_SUCCESS) {
-        if (!strcmp(tmp, "sub")) {
-          rx_opts.socket_type = ZMQ_SUB;
-        } else {
-          printf("Unsupported socket type %s\n", tmp);
-          goto clean_exit;
-        }
-      }
-
       // rx_format
       rx_opts.sample_format = UDP_TYPE_FC32;
-      if (parse_string(args, "rx_format", -1, tmp) == SRSRAN_SUCCESS) {
-        if (!strcmp(tmp, "sc16")) {
-          rx_opts.sample_format = UDP_TYPE_SC16;
-        } else {
-          printf("Unsupported sample format %s\n", tmp);
-          goto clean_exit;
-        }
-      }
-
-      // tx_type
-      if (parse_string(args, "tx_type", -1, tmp) == SRSRAN_SUCCESS) {
-        if (!strcmp(tmp, "pub")) {
-          tx_opts.socket_type = ZMQ_PUB;
-        } else {
-          printf("Unsupported socket type %s\n", tmp);
-          goto clean_exit;
-        }
-      }
 
       // tx_format
       tx_opts.sample_format = UDP_TYPE_FC32;
-      if (parse_string(args, "tx_format", -1, tmp) == SRSRAN_SUCCESS) {
-        if (!strcmp(tmp, "sc16")) {
-          tx_opts.sample_format = UDP_TYPE_SC16;
-        } else {
-          printf("Unsupported sample format %s\n", tmp);
-          goto clean_exit;
-        }
-      }
+    
     } else {
       fprintf(stderr,
               "[udp] Error: No device 'args' option has been set. Please make sure to set this option to be able to "
@@ -298,13 +255,6 @@ int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
     }
 
     update_rates(handler, 1.92e6);
-
-    //  Create UDP context
-    handler->context = zmq_ctx_new();
-    if (!handler->context) {
-      fprintf(stderr, "[udp] Error: creating new context\n");
-      goto clean_exit;
-    }
 
     for (int i = 0; i < handler->nof_channels; i++) {
       // rx_port
@@ -339,7 +289,7 @@ int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
       }
 
       // trx_timeout_ms
-      rx_opts.trx_timeout_ms = UDP_TIMEOUT_MS;
+      rx_opts.trx_timeout_ms = UDP_TIMEOUT_MS; /* 2 Seconds (2000 ms) */
       parse_uint32(args, "trx_timeout_ms", i, &rx_opts.trx_timeout_ms);
 
       // log_trx_timeout
@@ -349,9 +299,12 @@ int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
         rx_opts.log_trx_timeout = true;
       }
 
+
+
+      /* Open ports */
       // initialize transmitter
       if (strlen(tx_port) != 0) {
-        if (rf_udp_tx_open(&handler->transmitter[i], tx_opts, handler->context, tx_port) != SRSRAN_SUCCESS) {
+        if (rf_udp_tx_open(&handler->transmitter[i], tx_opts, tx_port) != SRSRAN_SUCCESS) {
           fprintf(stderr, "[udp] Error: opening transmitter\n");
           goto clean_exit;
         }
@@ -362,7 +315,7 @@ int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
 
       // initialize receiver
       if (strlen(rx_port) != 0) {
-        if (rf_udp_rx_open(&handler->receiver[i], rx_opts, handler->context, rx_port) != SRSRAN_SUCCESS) {
+        if (rf_udp_rx_open(&handler->receiver[i], rx_opts, rx_port) != SRSRAN_SUCCESS) {
           fprintf(stderr, "[udp] Error: opening receiver\n");
           goto clean_exit;
         }
@@ -410,10 +363,6 @@ int rf_udp_close(void* h)
   for (int i = 0; i < handler->nof_channels; i++) {
     rf_udp_tx_close(&handler->transmitter[i]);
     rf_udp_rx_close(&handler->receiver[i]);
-  }
-
-  if (handler->context) {
-    zmq_ctx_destroy(handler->context);
   }
 
   for (uint32_t i = 0; i < handler->nof_channels; i++) {
@@ -590,47 +539,6 @@ void rf_udp_get_time(void* h, time_t* secs, double* frac_secs)
   }
 }
 
-#if UDP_MONITOR
-static int rf_udp_rx_get_monitor_event(void* monitor, int* value, char** address)
-{
-  // First frame in message contains event number and value
-  zmq_msg_t msg;
-  zmq_msg_init(&msg);
-  if (zmq_msg_recv(&msg, monitor, 0) == -1) {
-    printf("zmq_msg_recv failed!\n");
-    return -1; // Interruped, presumably
-  }
-
-  if (zmq_msg_more(&msg)) {
-    printf("more to read\n");
-  }
-
-  uint8_t* data  = (uint8_t*)zmq_msg_data(&msg);
-  uint16_t event = *(uint16_t*)(data);
-  if (value) {
-    *value = *(uint32_t*)(data + 2);
-  }
-
-  // Second frame in message contains event address
-  zmq_msg_init(&msg);
-  if (zmq_msg_recv(&msg, monitor, 0) == -1) {
-    return -1; // Interruped, presumably
-  }
-  if (zmq_msg_more(&msg)) {
-    printf("error in msg_more \n");
-  }
-
-  if (address) {
-    uint8_t* data = (uint8_t*)zmq_msg_data(&msg);
-    size_t   size = zmq_msg_size(&msg);
-    *address      = (char*)malloc(size + 1);
-    memcpy(*address, data, size);
-    *address[size] = 0;
-  }
-  return event;
-}
-#endif // UDP_MONITOR
-
 int rf_udp_recv_with_time(void* h, void* data, uint32_t nsamples, bool blocking, time_t* secs, double* frac_secs)
 {
   return rf_udp_recv_with_time_multi(h, &data, nsamples, blocking, secs, frac_secs);
@@ -736,23 +644,6 @@ int rf_udp_recv_with_time_multi(void* h, void** data, uint32_t nsamples, bool bl
         if (count[i] < nsamples_baserate && rf_udp_rx_is_running(&handler->receiver[i])) {
           // Keep receiving
           int32_t n = rf_udp_rx_baseband(&handler->receiver[i], &ptr[count[i]], nsamples_baserate);
-#if UDP_MONITOR
-          // handle socket events
-          int event = rf_udp_rx_get_monitor_event(handler->receiver[i].socket_monitor, NULL, NULL);
-          if (event != -1) {
-            printf("event=0x%X\n", event);
-            switch (event) {
-              case ZMQ_EVENT_CONNECTED:
-                handler->receiver[i].tx_connected = true;
-                break;
-              case ZMQ_EVENT_CLOSED:
-                handler->receiver[i].tx_connected = false;
-                break;
-              default:
-                break;
-            }
-          }
-#endif // UDP_MONITOR
           if (n > SRSRAN_SUCCESS) {
             // No error
             count[i] += n;

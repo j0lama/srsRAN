@@ -38,13 +38,15 @@
 #define UDP_MAX_GAIN_DB (30.0f)
 #define UDP_MIN_GAIN_DB (0.0f)
 
+#define UDP_PORT 8008
+
 typedef enum { UDP_TYPE_FC32 = 0, UDP_TYPE_SC16 } rf_udp_format_t;
 
 typedef struct {
   char            id[UDP_ID_STRLEN];
   uint32_t        socket_type;
   rf_udp_format_t sample_format;
-  void*           sock;
+  int           sock;
   uint64_t        nsamples;
   bool            running;
   pthread_mutex_t mutex;
@@ -58,11 +60,7 @@ typedef struct {
   char            id[UDP_ID_STRLEN];
   uint32_t        socket_type;
   rf_udp_format_t sample_format;
-  void*           sock;
-#if UDP_MONITOR
-  void* socket_monitor;
-  bool  tx_connected;
-#endif
+  int           sock;
   uint64_t            nsamples;
   bool                running;
   pthread_t           thread;
@@ -100,7 +98,7 @@ SRSRAN_API int rf_udp_handle_error(char* id, const char* text);
 /*
  * Transmitter functions
  */
-SRSRAN_API int rf_udp_tx_open(rf_udp_tx_t* q, rf_udp_opts_t opts, void* udp_ctx, char* sock_args);
+SRSRAN_API int rf_udp_tx_open(rf_udp_tx_t* q, rf_udp_opts_t opts, char* sock_args);
 
 SRSRAN_API int rf_udp_tx_align(rf_udp_tx_t* q, uint64_t ts);
 
@@ -119,7 +117,7 @@ SRSRAN_API bool rf_udp_tx_is_running(rf_udp_tx_t* q);
 /*
  * Receiver functions
  */
-SRSRAN_API int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, void* udp_ctx, char* sock_args);
+SRSRAN_API int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, char* sock_args);
 
 SRSRAN_API int rf_udp_rx_baseband(rf_udp_rx_t* q, cf_t* buffer, uint32_t nsamples);
 

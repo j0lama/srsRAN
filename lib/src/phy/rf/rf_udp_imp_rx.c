@@ -37,24 +37,10 @@ static void* rf_udp_async_rx_thread(void* h)
 
     rf_udp_info(q->id, "-- ASYNC RX wait...\n");
 
-    // Send request if socket type is REQUEST
-    if (q->socket_type == ZMQ_REQ) {
-      while (n < 0 && rf_udp_rx_is_running(q)) {
-        rf_udp_info(q->id, " - tx'ing rx request\n");
-        n = zmq_send(q->sock, &dummy, sizeof(dummy), 0);
-        if (n < 0) {
-          if (rf_udp_handle_error(q->id, "synchronous rx request send")) {
-            return NULL;
-          }
-        }
-      }
-    } else {
-      n = 0;
-    }
-
     // Receive baseband
-    for (n = (n < 0) ? 0 : -1; n < 0 && rf_udp_rx_is_running(q);) {
-      n = zmq_recv(q->sock, q->temp_buffer, UDP_MAX_BUFFER_SIZE, 0);
+    n = 1;
+    for (n = (n < 0) ? 0 : -1; n < 0 && rf_udp_rx_is_running(q)) {
+      n = recv(q->sock, q->temp_buffer, UDP_MAX_BUFFER_SIZE, 0);
       if (n == -1) {
         if (rf_udp_handle_error(q->id, "asynchronous rx baseband receive")) {
           return NULL;
@@ -98,7 +84,7 @@ static void* rf_udp_async_rx_thread(void* h)
   return NULL;
 }
 
-int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, void* udp_ctx, char* sock_args)
+int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, char* sock_args)
 {
   int ret = SRSRAN_ERROR;
 
@@ -111,7 +97,7 @@ int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, void* udp_ctx, char* sock
     q->id[UDP_ID_STRLEN - 1] = '\0';
 
     // Create socket
-    q->sock = zmq_socket(udp_ctx, opts.socket_type);
+    q->sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (!q->sock) {
       fprintf(stderr, "[udp] Error: creating transmitter socket\n");
       goto clean_exit;
@@ -124,49 +110,38 @@ int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, void* udp_ctx, char* sock
     q->trx_timeout_ms     = opts.trx_timeout_ms;
     q->log_trx_timeout    = opts.log_trx_timeout;
 
-    if (opts.socket_type == ZMQ_SUB) {
-      zmq_setsockopt(q->sock, ZMQ_SUBSCRIBE, "", 0);
+    rf_udp_info(q->id, "Binding receiver: %s\n", sock_args);
+
+    /* Bind UDP socket */
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(UDP_PORT);
+    if(inet_pton(AF_INET, sock_args, &(addr.sin_addr)) != 1) {
+       fprintf(stderr, "[udp] Error: invalid IP address (%s)\n", sock_args);
+        goto clean_exit;
     }
+    bzero(&(dpu_addr.sin_zero),8);
 
-#if UDP_MONITOR
-    // Monitor all events (monitoring only works over inproc://)
-    ret = zmq_socket_monitor(q->sock, "inproc://monitor-client", ZMQ_EVENT_ALL);
-    if (ret == -1) {
-      fprintf(stderr, "Error: creating socket monitor: %s\n", zmq_strerror(zmq_errno()));
-      goto clean_exit;
-    }
-
-    // create socket socket for monitoring and connect monitor
-    q->socket_monitor = zmq_socket(udp_ctx, ZMQ_PAIR);
-    ret               = zmq_connect(q->socket_monitor, "inproc://monitor-client");
-    if (ret) {
-      fprintf(stderr, "Error: connecting monitor socket: %s\n", zmq_strerror(zmq_errno()));
-      goto clean_exit;
-    }
-#endif // UDP_MONITOR
-
-    rf_udp_info(q->id, "Connecting receiver: %s\n", sock_args);
-
-    ret = zmq_connect(q->sock, sock_args);
-    if (ret) {
-      fprintf(stderr, "Error: connecting receiver socket: %s\n", zmq_strerror(zmq_errno()));
+    if (bind(q->sock,(struct sockaddr *)&addr, sizeof(struct sockaddr)) == -1) {
+      fprintf(stderr, "Error: binding receiver socket: %s\n", strerror(errno));
       goto clean_exit;
     }
 
     if (opts.trx_timeout_ms) {
       int timeout = opts.trx_timeout_ms;
-      if (zmq_setsockopt(q->sock, ZMQ_RCVTIMEO, &timeout, sizeof(timeout)) == -1) {
+      if (setsockopt(q->sock, SO_RCVTIMEO, &timeout, sizeof(timeout)) == -1) {
         fprintf(stderr, "Error: setting receive timeout on rx socket\n");
         goto clean_exit;
       }
 
-      if (zmq_setsockopt(q->sock, ZMQ_SNDTIMEO, &timeout, sizeof(timeout)) == -1) {
+      if (setsockopt(q->sock, SO_SNDTIMEO, &timeout, sizeof(timeout)) == -1) {
         fprintf(stderr, "Error: setting send timeout on rx socket\n");
         goto clean_exit;
       }
 
-      timeout = 0;
-      if (zmq_setsockopt(q->sock, ZMQ_LINGER, &timeout, sizeof(timeout)) == -1) {
+      struct linger lin;
+      lin.l_onoff = 1;
+      lin.l_linger = 0;
+      if (setsockopt(q->sock, SO_LINGER, &lin, sizeof(lin)) == -1) {
         fprintf(stderr, "Error: setting linger timeout on rx socket\n");
         goto clean_exit;
       }
@@ -285,16 +260,9 @@ void rf_udp_rx_close(rf_udp_rx_t* q)
   }
 
   if (q->sock) {
-    zmq_close(q->sock);
-    q->sock = NULL;
+    close(q->sock);
+    q->sock = 0;
   }
-
-#if ZMQ_MONITOR
-  if (q->socket_monitor) {
-    zmq_close(q->socket_monitor);
-    q->socket_monitor = NULL;
-  }
-#endif // UDP_MONITOR
 }
 
 bool rf_udp_rx_is_running(rf_udp_rx_t* q)

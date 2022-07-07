@@ -25,10 +25,14 @@
 #include <srsran/phy/utils/vector.h>
 #include <stdlib.h>
 #include <string.h>
-#include <zmq.h>
+#include <errno.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
-int rf_udp_tx_open(rf_udp_tx_t* q, rf_udp_opts_t opts, void* udp_ctx, char* sock_args)
+int rf_udp_tx_open(rf_udp_tx_t* q, rf_udp_opts_t opts, char* sock_args)
 {
+  struct sockaddr_in addr;
   int ret = SRSRAN_ERROR;
 
   if (q) {
@@ -40,8 +44,8 @@ int rf_udp_tx_open(rf_udp_tx_t* q, rf_udp_opts_t opts, void* udp_ctx, char* sock
     q->id[UDP_ID_STRLEN - 1] = '\0';
 
     // Create socket
-    q->sock = zmq_socket(udp_ctx, opts.socket_type);
-    if (!q->sock) {
+    q->sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (q->sock < 0) {
       fprintf(stderr, "[udp] Error: creating transmitter socket\n");
       goto clean_exit;
     }
@@ -50,28 +54,38 @@ int rf_udp_tx_open(rf_udp_tx_t* q, rf_udp_opts_t opts, void* udp_ctx, char* sock
     q->frequency_mhz = opts.frequency_mhz;
     q->sample_offset = opts.sample_offset;
 
-    rf_udp_info(q->id, "Binding transmitter: %s\n", sock_args);
+    rf_udp_info(q->id, "Connecting transmitter: %s\n", sock_args);
 
-    ret = zmq_bind(q->sock, sock_args);
-    if (ret) {
-      fprintf(stderr, "Error: binding transmitter socket (%s): %s\n", sock_args, zmq_strerror(zmq_errno()));
+    /* Connect UDP socket */
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(UDP_PORT);
+    if(inet_pton(AF_INET, sock_args, &(addr.sin_addr)) != 1) {
+       fprintf(stderr, "[udp] Error: invalid IP address (%s)\n", sock_args);
+        goto clean_exit;
+    }
+    bzero(&(dpu_addr.sin_zero),8);
+
+    if(connect(q->sock, (struct sockaddr *) &addr, sizeof(struct sockaddr)) < 0) {
+      fprintf(stderr, "Error: connecting transmitter socket (%s): %s\n", sock_args, strerror(errno));
       goto clean_exit;
     }
 
     if (opts.trx_timeout_ms) {
       int timeout = opts.trx_timeout_ms;
-      if (zmq_setsockopt(q->sock, ZMQ_RCVTIMEO, &timeout, sizeof(timeout)) == -1) {
+      if (setsockopt(q->sock, SO_RCVTIMEO, &timeout, sizeof(timeout)) == -1) {
         fprintf(stderr, "Error: setting receive timeout on tx socket\n");
         goto clean_exit;
       }
 
-      if (zmq_setsockopt(q->sock, ZMQ_SNDTIMEO, &timeout, sizeof(timeout)) == -1) {
+      if (setsockopt(q->sock, SO_SNDTIMEO, &timeout, sizeof(timeout)) == -1) {
         fprintf(stderr, "Error: setting send timeout on tx socket\n");
         goto clean_exit;
       }
 
-      timeout = 0;
-      if (zmq_setsockopt(q->sock, ZMQ_LINGER, &timeout, sizeof(timeout)) == -1) {
+      struct linger lin;
+      lin.l_onoff = 1;
+      lin.l_linger = 0;
+      if (setsockopt(q->sock, SO_LINGER, &lin, sizeof(lin)) == -1) {
         fprintf(stderr, "Error: setting linger timeout on tx socket\n");
         goto clean_exit;
       }
@@ -109,51 +123,25 @@ static int _rf_udp_tx_baseband(rf_udp_tx_t* q, cf_t* buffer, uint32_t nsamples)
   int n = SRSRAN_ERROR;
 
   while (n < 0 && q->running) {
-    // Receive Transmit request is socket type is REPLY
-    if (q->socket_type == ZMQ_REP) {
-      uint8_t dummy;
-      n = zmq_recv(q->sock, &dummy, sizeof(dummy), 0);
-      if (n < 0) {
-        if (rf_udp_handle_error(q->id, "tx request receive")) {
-          n = SRSRAN_ERROR;
-          goto clean_exit;
-        }
-      } else {
-        // Tx request received successful
-        rf_udp_info(q->id, " - tx request received\n");
-        rf_udp_info(q->id, " - sending %d samples (%d B)\n", nsamples, NSAMPLES2NBYTES(nsamples));
-      }
-    } else {
-      n = 1;
-    }
-
     // convert samples if necessary
     void*    buf       = (buffer) ? buffer : q->zeros;
     uint32_t sample_sz = sizeof(cf_t);
 
-    if (q->sample_format == UDP_TYPE_SC16) {
-      buf       = q->temp_buffer_convert;
-      sample_sz = 2 * sizeof(short);
-      srsran_vec_convert_fi((float*)buffer, INT16_MAX, (short*)q->temp_buffer_convert, 2 * nsamples);
-    }
-
     // Send base-band if request was received
-    if (n > 0) {
-      n = zmq_send(q->sock, buf, (size_t)sample_sz * nsamples, 0);
-      if (n < 0) {
-        if (rf_udp_handle_error(q->id, "tx baseband send")) {
-          n = SRSRAN_ERROR;
-          goto clean_exit;
-        }
-      } else if (n != NSAMPLES2NBYTES(nsamples)) {
-        rf_udp_error(q->id,
-                     "[udp] Error: transmitter expected %d bytes and sent %d. %s.\n",
-                     NSAMPLES2NBYTES(nsamples),
-                     n,
-                     strerror(zmq_errno()));
+    n = send(q->sock, buf, (size_t)sample_sz*nsamples, 0);
+    if (n < 0) {
+      if (rf_udp_handle_error(q->id, "tx baseband send")) {
         n = SRSRAN_ERROR;
         goto clean_exit;
       }
+    } else if (n != NSAMPLES2NBYTES(nsamples)) {
+      rf_udp_error(q->id,
+                   "[udp] Error: transmitter expected %d bytes and sent %d. %s.\n",
+                   NSAMPLES2NBYTES(nsamples),
+                   n,
+                   strerror(errno));
+      n = SRSRAN_ERROR;
+      goto clean_exit;
     }
 
     // If failed to receive request or send base-band, keep trying
@@ -255,8 +243,8 @@ void rf_udp_tx_close(rf_udp_tx_t* q)
   }
 
   if (q->sock) {
-    zmq_close(q->sock);
-    q->sock = NULL;
+    close(q->sock);
+    q->sock = 0;
   }
 }
 
