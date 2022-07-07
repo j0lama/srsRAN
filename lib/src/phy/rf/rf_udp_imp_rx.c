@@ -133,8 +133,8 @@ int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, char* sock_args)
 
     if (opts.trx_timeout_ms) {
       struct timeval tv;
-      tv.tv_sec = 0;
-      tv.tv_usec = 1000*((int) opts.trx_timeout_ms);
+      tv.tv_sec = ((int) opts.trx_timeout_ms) / 1000;
+      tv.tv_usec = 1000* (((int) opts.trx_timeout_ms) % 1000);
       if (setsockopt(q->sock, SOL_SOCKET, SO_RCVTIMEO, (void *) &tv, (socklen_t) sizeof(tv)) == -1) {
         fprintf(stderr, "Error: setting receive timeout on rx socket (%s)\n", strerror(errno));
         goto clean_exit;
