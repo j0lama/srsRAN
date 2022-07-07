@@ -126,9 +126,8 @@ int rf_udp_handle_error(char* id, const char* text)
 {
   int ret = SRSRAN_SUCCESS;
 
-  switch (err) {
+  switch (errno) {
     // handled errors
-    case EFSM:
     case EAGAIN:
       rf_udp_info(id, "Warning %s: %s\n", text, strerror(errno));
       break;
