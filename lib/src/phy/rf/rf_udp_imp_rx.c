@@ -37,13 +37,12 @@ static void* rf_udp_async_rx_thread(void* h)
   while (q->sock && rf_udp_rx_is_running(q)) {
     int     nbytes = 0;
     int     n      = SRSRAN_ERROR;
-    uint8_t dummy  = 0xFF;
 
     rf_udp_info(q->id, "-- ASYNC RX wait...\n");
 
     // Receive baseband
     n = 1;
-    for (n = (n < 0) ? 0 : -1; n < 0 && rf_udp_rx_is_running(q)) {
+    for (n = (n < 0) ? 0 : -1; n < 0 && rf_udp_rx_is_running(q);) {
       n = recv(q->sock, q->temp_buffer, UDP_MAX_BUFFER_SIZE, 0);
       if (n == -1) {
         if (rf_udp_handle_error(q->id, "asynchronous rx baseband receive")) {
