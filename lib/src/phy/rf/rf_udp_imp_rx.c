@@ -172,10 +172,10 @@ int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, char* sock_args)
     }
 
     /* Accept UE */
-    q->peer_sock = accept(q->sock, (struct sockaddr *)&addr, &addrlen);
+    q->peer_sock = accept(q->sock, (struct sockaddr *)&addr, (socklen_t *) &addrlen);
 		if(q->peer_sock == -1)
 		{
-			fprintf(stderr, "Error: accepting peer connection (s)\n", strerror(errno));
+			fprintf(stderr, "Error: accepting peer connection (%s)\n", strerror(errno));
 			goto clean_exit;
 		}
 
