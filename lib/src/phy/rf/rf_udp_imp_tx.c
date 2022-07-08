@@ -46,7 +46,7 @@ int rf_udp_tx_open(rf_udp_tx_t* q, rf_udp_opts_t opts, char* sock_args)
     q->id[UDP_ID_STRLEN - 1] = '\0';
 
     // Create socket
-    q->sock = socket(AF_INET, SOCK_DGRAM, 0);
+    q->sock = socket(AF_INET, SOCK_STREAM, 0);
     if (q->sock < 0) {
       fprintf(stderr, "[udp] Error: creating transmitter socket\n");
       goto clean_exit;
