@@ -312,6 +312,7 @@ int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
         } else {
           fprintf(stdout, "[udp] %s Rx port not specified. Disabling receiver.\n", handler->id);
         }
+        printf("UE receiver ready.\n");
 
         // initialize UE transmitter
         if (strlen(tx_port) != 0) {
@@ -323,6 +324,7 @@ int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
           fprintf(stdout, "[udp] %s Tx port not specified. Disabling transmitter.\n", handler->id);
           handler->tx_off = true;
         }
+        printf("UE transmitter ready.\n");
       }
       else {
         printf("Initializing eNB...\n");
@@ -337,6 +339,7 @@ int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
           fprintf(stdout, "[udp] %s Tx port not specified. Disabling transmitter.\n", handler->id);
           handler->tx_off = true;
         }
+        printf("eNB transmitter ready.\n");
 
         // initialize eNB receiver
         if (strlen(rx_port) != 0) {
@@ -347,6 +350,7 @@ int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
         } else {
           fprintf(stdout, "[udp] %s Rx port not specified. Disabling receiver.\n", handler->id);
         }
+        printf("eNB receiver ready.\n");
       }
 
       if (!handler->transmitter[i].running && !handler->receiver[i].running) {
