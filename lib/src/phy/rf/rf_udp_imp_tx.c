@@ -118,6 +118,8 @@ int rf_udp_tx_open(rf_udp_tx_t* q, rf_udp_opts_t opts, char* sock_args)
     ret = SRSRAN_SUCCESS;
   }
 
+  sleep(10);
+
 clean_exit:
   return ret;
 }
