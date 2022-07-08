@@ -172,10 +172,15 @@ int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, char* sock_args)
       }
     }
 
+    /* Listen */
+    if(listen(q->sock, 5) == -1) {
+      fprintf(stderr, "Error: listening on socket (%s)\n", strerror(errno));
+			goto clean_exit;
+    }
+
     /* Accept UE */
     q->peer_sock = accept(q->sock, (struct sockaddr *)&remote_addr, (socklen_t *) &addrlen);
-		if(q->peer_sock == -1)
-		{
+		if(q->peer_sock == -1) {
 			fprintf(stderr, "Error: accepting peer connection (%s)\n", strerror(errno));
 			goto clean_exit;
 		}
