@@ -122,6 +122,30 @@ clean_exit:
   return ret;
 }
 
+int send_message(int sock, void * buffer, size_t sz)
+{
+  int n = 0;
+  int nbytes = 0;
+  int n_msg;
+  int last_msg_size;
+
+  // Calculate number of messages
+  n_msg = sz/MESSAGE_MAX_LENGTH + (sz % MESSAGE_MAX_LENGTH != 0);
+  
+  for(int i = 0; i < n_msg; i++) {
+    if(i == n_msg-1) /* Last message */
+      n = send(sock, buffer+(i*MESSAGE_MAX_LENGTH), sz % MESSAGE_MAX_LENGTH, 0);
+    else
+      n = send(sock, buffer+(i*MESSAGE_MAX_LENGTH), MESSAGE_MAX_LENGTH, 0);
+
+    if(n == -1)
+      return -1;
+    nbytes += n;
+  }
+
+  return nbytes;
+}
+
 static int _rf_udp_tx_baseband(rf_udp_tx_t* q, cf_t* buffer, uint32_t nsamples)
 {
   int n = SRSRAN_ERROR;
@@ -132,7 +156,6 @@ static int _rf_udp_tx_baseband(rf_udp_tx_t* q, cf_t* buffer, uint32_t nsamples)
     uint32_t sample_sz = sizeof(cf_t);
 
     // Send base-band if request was received
-    printf("Message length: %d\n", sample_sz*nsamples);
     n = send(q->sock, buf, (size_t)sample_sz*nsamples, 0);
     if (n < 0) {
       if (rf_udp_handle_error(q->id, "tx baseband send")) {

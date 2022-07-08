@@ -31,6 +31,21 @@
 #include <unistd.h>
 #include <time.h>
 
+int receive_message(int sock, void * buffer)
+{
+  int n = 0;
+  int offset = 0;
+
+  do {
+    n = recv(sock, buffer+offset, MESSAGE_MAX_LENGTH, 0);
+    if(n == -1)
+      return -1;
+    offset += n;
+  } while(n == MESSAGE_MAX_LENGTH);
+
+  return n;
+}
+
 static void* rf_udp_async_rx_thread(void* h)
 {
   rf_udp_rx_t* q = (rf_udp_rx_t*)h;
@@ -44,7 +59,7 @@ static void* rf_udp_async_rx_thread(void* h)
     // Receive baseband
     n = 1;
     for (n = (n < 0) ? 0 : -1; n < 0 && rf_udp_rx_is_running(q);) {
-      n = recv(q->sock, q->temp_buffer, UDP_MAX_BUFFER_SIZE, 0);
+      n = receive_message(q->sock, q->temp_buffer);
       if (n == -1) {
         if (rf_udp_handle_error(q->id, "asynchronous rx baseband receive")) {
           return NULL;

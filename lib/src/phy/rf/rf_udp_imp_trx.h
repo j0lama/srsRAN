@@ -38,7 +38,9 @@
 #define UDP_MAX_GAIN_DB (30.0f)
 #define UDP_MIN_GAIN_DB (0.0f)
 
+/* UDP definitions */
 #define UDP_PORT 8008
+#define MESSAGE_MAX_LENGTH 50000
 
 typedef enum { UDP_TYPE_FC32 = 0, UDP_TYPE_SC16 } rf_udp_format_t;
 
