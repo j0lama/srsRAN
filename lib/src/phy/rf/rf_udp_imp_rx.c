@@ -149,7 +149,7 @@ int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, char* sock_args)
       goto clean_exit;
     }
 
-    if (opts.trx_timeout_ms) {
+    if (!opts.trx_timeout_ms) {
       struct timeval tv;
       tv.tv_sec = ((int) opts.trx_timeout_ms) / 1000;
       tv.tv_usec = 1000* (((int) opts.trx_timeout_ms) % 1000);
