@@ -127,7 +127,6 @@ int send_message(int sock, void * buffer, size_t sz)
   int n = 0;
   int nbytes = 0;
   int n_msg;
-  int last_msg_size;
 
   // Calculate number of messages
   n_msg = sz/MESSAGE_MAX_LENGTH + (sz % MESSAGE_MAX_LENGTH != 0);
