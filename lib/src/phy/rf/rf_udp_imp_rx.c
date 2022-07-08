@@ -43,7 +43,7 @@ int receive_message(int sock, void * buffer)
     offset += n;
   } while(n == MESSAGE_MAX_LENGTH);
 
-  return n;
+  return offset;
 }
 
 static void* rf_udp_async_rx_thread(void* h)
