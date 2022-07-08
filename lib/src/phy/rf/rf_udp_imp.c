@@ -301,7 +301,7 @@ int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
       printf("ID: %s\n", handler->id);
 
       /* Open ports */
-      if(!strcmp(handler->ue, "ue")) {
+      if(!strcmp(handler->id, "ue")) {
         printf("Initializing UE...\n");
         // initialize UE receiver
         if (strlen(rx_port) != 0) {
