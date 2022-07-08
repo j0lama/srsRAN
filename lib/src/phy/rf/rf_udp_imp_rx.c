@@ -60,7 +60,6 @@ static void* rf_udp_async_rx_thread(void* h)
     n = 1;
     for (n = (n < 0) ? 0 : -1; n < 0 && rf_udp_rx_is_running(q);) {
       n = receive_message(q->sock, q->temp_buffer);
-      printf("Message received (%d)\n", n);
       if (n == -1) {
         if (rf_udp_handle_error(q->id, "asynchronous rx baseband receive")) {
           return NULL;
