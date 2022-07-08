@@ -298,7 +298,7 @@ int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
         rx_opts.log_trx_timeout = true;
       }
 
-
+      printf("ID: %s", handler->id);
 
       /* Open ports */
       // initialize transmitter
