@@ -298,28 +298,55 @@ int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
         rx_opts.log_trx_timeout = true;
       }
 
-      printf("ID: %s", handler->id);
+      printf("ID: %s\n", handler->id);
 
       /* Open ports */
-      // initialize transmitter
-      if (strlen(tx_port) != 0) {
-        if (rf_udp_tx_open(&handler->transmitter[i], tx_opts, tx_port) != SRSRAN_SUCCESS) {
-          fprintf(stderr, "[udp] Error: opening transmitter\n");
-          goto clean_exit;
+      if(!strcmp(handler->ue, "ue")) {
+        printf("Initializing UE...\n");
+        // initialize UE receiver
+        if (strlen(rx_port) != 0) {
+          if (rf_udp_rx_open(&handler->receiver[i], rx_opts, rx_port) != SRSRAN_SUCCESS) {
+            fprintf(stderr, "[udp] Error: opening receiver\n");
+            goto clean_exit;
+          }
+        } else {
+          fprintf(stdout, "[udp] %s Rx port not specified. Disabling receiver.\n", handler->id);
         }
-      } else {
-        fprintf(stdout, "[udp] %s Tx port not specified. Disabling transmitter.\n", handler->id);
-        handler->tx_off = true;
-      }
 
-      // initialize receiver
-      if (strlen(rx_port) != 0) {
-        if (rf_udp_rx_open(&handler->receiver[i], rx_opts, rx_port) != SRSRAN_SUCCESS) {
-          fprintf(stderr, "[udp] Error: opening receiver\n");
-          goto clean_exit;
+        // initialize UE transmitter
+        if (strlen(tx_port) != 0) {
+          if (rf_udp_tx_open(&handler->transmitter[i], tx_opts, tx_port) != SRSRAN_SUCCESS) {
+            fprintf(stderr, "[udp] Error: opening transmitter\n");
+            goto clean_exit;
+          }
+        } else {
+          fprintf(stdout, "[udp] %s Tx port not specified. Disabling transmitter.\n", handler->id);
+          handler->tx_off = true;
         }
-      } else {
-        fprintf(stdout, "[udp] %s Rx port not specified. Disabling receiver.\n", handler->id);
+      }
+      else {
+        printf("Initializing eNB...\n");
+
+        // initialize eNB transmitter
+        if (strlen(tx_port) != 0) {
+          if (rf_udp_tx_open(&handler->transmitter[i], tx_opts, tx_port) != SRSRAN_SUCCESS) {
+            fprintf(stderr, "[udp] Error: opening transmitter\n");
+            goto clean_exit;
+          }
+        } else {
+          fprintf(stdout, "[udp] %s Tx port not specified. Disabling transmitter.\n", handler->id);
+          handler->tx_off = true;
+        }
+
+        // initialize eNB receiver
+        if (strlen(rx_port) != 0) {
+          if (rf_udp_rx_open(&handler->receiver[i], rx_opts, rx_port) != SRSRAN_SUCCESS) {
+            fprintf(stderr, "[udp] Error: opening receiver\n");
+            goto clean_exit;
+          }
+        } else {
+          fprintf(stdout, "[udp] %s Rx port not specified. Disabling receiver.\n", handler->id);
+        }
       }
 
       if (!handler->transmitter[i].running && !handler->receiver[i].running) {

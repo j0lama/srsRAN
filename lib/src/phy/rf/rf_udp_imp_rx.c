@@ -59,7 +59,8 @@ static void* rf_udp_async_rx_thread(void* h)
     // Receive baseband
     n = 1;
     for (n = (n < 0) ? 0 : -1; n < 0 && rf_udp_rx_is_running(q);) {
-      n = receive_message(q->sock, q->temp_buffer);
+      //n = receive_message(q->sock, q->temp_buffer);
+      n = recv(q->peer_sock, q->temp_buffer, UDP_MAX_BUFFER_SIZE, 0);
       if (n == -1) {
         if (rf_udp_handle_error(q->id, "asynchronous rx baseband receive")) {
           return NULL;
@@ -107,6 +108,7 @@ int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, char* sock_args)
 {
   int ret = SRSRAN_ERROR;
   struct sockaddr_in addr;
+  int addrlen = sizeof(struct sockaddr);
 
   if (q) {
     // Zero object
@@ -117,7 +119,7 @@ int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, char* sock_args)
     q->id[UDP_ID_STRLEN - 1] = '\0';
 
     // Create socket
-    q->sock = socket(AF_INET, SOCK_DGRAM, 0);
+    q->sock = socket(AF_INET, SOCK_STREAM, 0);
     if (!q->sock) {
       fprintf(stderr, "[udp] Error: creating transmitter socket\n");
       goto clean_exit;
@@ -168,6 +170,14 @@ int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, char* sock_args)
         goto clean_exit;
       }
     }
+
+    /* Accept UE */
+    q->peer_sock = accept(q->sock, (struct sockaddr *)&addr, &addrlen);
+		if(q->peer_sock == -1)
+		{
+			fprintf(stderr, "Error: accepting peer connection (s)\n", strerror(errno));
+			goto clean_exit;
+		}
 
     if (srsran_ringbuffer_init(&q->ringbuffer, UDP_MAX_BUFFER_SIZE)) {
       fprintf(stderr, "Error: initiating ringbuffer\n");
@@ -284,6 +294,10 @@ void rf_udp_rx_close(rf_udp_rx_t* q)
   if (q->sock) {
     close(q->sock);
     q->sock = 0;
+  }
+  if(q->peer_sock) {
+    close(q->peer_sock);
+    q->peer_sock = 0;
   }
 }
 

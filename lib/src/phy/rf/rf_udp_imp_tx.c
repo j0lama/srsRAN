@@ -155,7 +155,8 @@ static int _rf_udp_tx_baseband(rf_udp_tx_t* q, cf_t* buffer, uint32_t nsamples)
     uint32_t sample_sz = sizeof(cf_t);
 
     // Send base-band if request was received
-    n = send_message(q->sock, buf, (size_t)sample_sz*nsamples);
+    //n = send_message(q->sock, buf, (size_t)sample_sz*nsamples);
+    n = send(q->sock, buf, (size_t)sample_sz*nsamples, 0);
     if (n < 0) {
       if (rf_udp_handle_error(q->id, "tx baseband send")) {
         n = SRSRAN_ERROR;

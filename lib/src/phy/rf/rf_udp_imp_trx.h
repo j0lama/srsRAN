@@ -48,7 +48,7 @@ typedef struct {
   char            id[UDP_ID_STRLEN];
   uint32_t        socket_type;
   rf_udp_format_t sample_format;
-  int           sock;
+  int             sock;
   uint64_t        nsamples;
   bool            running;
   pthread_mutex_t mutex;
@@ -59,10 +59,11 @@ typedef struct {
 } rf_udp_tx_t;
 
 typedef struct {
-  char            id[UDP_ID_STRLEN];
-  uint32_t        socket_type;
-  rf_udp_format_t sample_format;
-  int           sock;
+  char                id[UDP_ID_STRLEN];
+  uint32_t            socket_type;
+  rf_udp_format_t     sample_format;
+  int                 sock;
+  int                 peer_sock;
   uint64_t            nsamples;
   bool                running;
   pthread_t           thread;
