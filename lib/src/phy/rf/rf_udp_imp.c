@@ -48,6 +48,7 @@ typedef struct {
   uint32_t rx_freq_mhz[SRSRAN_MAX_CHANNELS];
   bool     tx_off;
   char     id[RF_PARAM_LEN];
+  char     proto[RF_PARAM_LEN];
 
   // Server
   rf_udp_tx_t transmitter[SRSRAN_MAX_CHANNELS];
@@ -239,6 +240,13 @@ int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
 
       // id
       parse_string(args, "id", -1, handler->id);
+
+      // Protocol
+      parse_string(args, "protocol", -1, handler->proto);
+      if(strcmp(handler->proto, "tcp") && strcmp(handler->proto, "udp")) {
+        fprintf(stderr, "[net] Invalid protocol: only 'tcp' and 'udp' are supported.\n");
+        goto clean_exit;
+      }
 
       // rx_format
       rx_opts.sample_format = UDP_TYPE_FC32;
