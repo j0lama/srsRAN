@@ -37,11 +37,11 @@ int receive_message(int sock, void * buffer)
   int offset = 0;
 
   do {
-    n = recv(sock, buffer+offset, MESSAGE_MAX_LENGTH, 0);
+    n = recv(sock, buffer+offset, NET_DATAFRAME_MAX_LENGTH, 0);
     if(n == -1)
       return -1;
     offset += n;
-  } while(n == MESSAGE_MAX_LENGTH);
+  } while(n == NET_DATAFRAME_MAX_LENGTH);
 
   return offset;
 }

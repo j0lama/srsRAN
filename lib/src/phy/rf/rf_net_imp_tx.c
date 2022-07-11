@@ -129,13 +129,13 @@ int send_message(int sock, void * buffer, size_t sz)
   int n_msg;
 
   // Calculate number of messages
-  n_msg = sz/MESSAGE_MAX_LENGTH + (sz % MESSAGE_MAX_LENGTH != 0);
+  n_msg = sz/NET_DATAFRAME_MAX_LENGTH + (sz % NET_DATAFRAME_MAX_LENGTH != 0);
   
   for(int i = 0; i < n_msg; i++) {
     if(i == n_msg-1) /* Last message */
-      n = send(sock, buffer+(i*MESSAGE_MAX_LENGTH), sz % MESSAGE_MAX_LENGTH, 0);
+      n = send(sock, buffer+(i*NET_DATAFRAME_MAX_LENGTH), sz % NET_DATAFRAME_MAX_LENGTH, 0);
     else
-      n = send(sock, buffer+(i*MESSAGE_MAX_LENGTH), MESSAGE_MAX_LENGTH, 0);
+      n = send(sock, buffer+(i*NET_DATAFRAME_MAX_LENGTH), NET_DATAFRAME_MAX_LENGTH, 0);
 
     if(n == -1)
       return -1;
