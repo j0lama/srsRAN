@@ -32,6 +32,34 @@
 #include <unistd.h>
 #include <time.h>
 
+int send_udp(int sock, void * buffer, size_t sz)
+{
+  int n = 0;
+  int nbytes = 0;
+  int n_msg;
+
+  // Calculate number of messages
+  n_msg = sz/NET_DATAFRAME_MAX_LENGTH + (sz % NET_DATAFRAME_MAX_LENGTH != 0);
+  
+  for(int i = 0; i < n_msg; i++) {
+    if(i == n_msg-1) /* Last message */
+      n = send(sock, buffer+(i*NET_DATAFRAME_MAX_LENGTH), sz % NET_DATAFRAME_MAX_LENGTH, 0);
+    else
+      n = send(sock, buffer+(i*NET_DATAFRAME_MAX_LENGTH), NET_DATAFRAME_MAX_LENGTH, 0);
+
+    if(n == -1)
+      return -1;
+    nbytes += n;
+  }
+
+  return nbytes;
+}
+
+int send_tcp(int sock, void * buffer, size_t sz)
+{
+  return send(sock, buffer, sz, 0);
+}
+
 int rf_net_tx_open(rf_net_tx_t* q, rf_net_opts_t opts, char* sock_args)
 {
   struct sockaddr_in addr;
@@ -45,8 +73,18 @@ int rf_net_tx_open(rf_net_tx_t* q, rf_net_opts_t opts, char* sock_args)
     strncpy(q->id, opts.id, NET_ID_STRLEN - 1);
     q->id[NET_ID_STRLEN - 1] = '\0';
 
+    /* Register the send method based on the protocol */
+    if(opts.proto == NET_TCP)
+      q->send_message = send_tcp;
+    else
+      q->send_message = send_udp;
+
     // Create socket
-    q->sock = socket(AF_INET, SOCK_STREAM, 0);
+    if(opts.proto == NET_TCP)
+      q->sock = socket(AF_INET, SOCK_STREAM, 0);
+    else
+      q->sock = socket(AF_INET, SOCK_DGRAM, 0);
+
     if (q->sock < 0) {
       fprintf(stderr, "[net] Error: creating transmitter socket\n");
       goto clean_exit;
@@ -122,29 +160,6 @@ clean_exit:
   return ret;
 }
 
-int send_message(int sock, void * buffer, size_t sz)
-{
-  int n = 0;
-  int nbytes = 0;
-  int n_msg;
-
-  // Calculate number of messages
-  n_msg = sz/NET_DATAFRAME_MAX_LENGTH + (sz % NET_DATAFRAME_MAX_LENGTH != 0);
-  
-  for(int i = 0; i < n_msg; i++) {
-    if(i == n_msg-1) /* Last message */
-      n = send(sock, buffer+(i*NET_DATAFRAME_MAX_LENGTH), sz % NET_DATAFRAME_MAX_LENGTH, 0);
-    else
-      n = send(sock, buffer+(i*NET_DATAFRAME_MAX_LENGTH), NET_DATAFRAME_MAX_LENGTH, 0);
-
-    if(n == -1)
-      return -1;
-    nbytes += n;
-  }
-
-  return nbytes;
-}
-
 static int _rf_net_tx_baseband(rf_net_tx_t* q, cf_t* buffer, uint32_t nsamples)
 {
   int n = SRSRAN_ERROR;
@@ -155,8 +170,7 @@ static int _rf_net_tx_baseband(rf_net_tx_t* q, cf_t* buffer, uint32_t nsamples)
     uint32_t sample_sz = sizeof(cf_t);
 
     // Send base-band if request was received
-    //n = send_message(q->sock, buf, (size_t)sample_sz*nsamples);
-    n = send(q->sock, buf, (size_t)sample_sz*nsamples, 0);
+    n = q->send_message(q->sock, buf, (size_t) sample_sz*nsamples);
     if (n < 0) {
       if (rf_net_handle_error(q->id, "tx baseband send")) {
         n = SRSRAN_ERROR;

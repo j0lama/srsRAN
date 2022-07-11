@@ -31,7 +31,7 @@
 #include <unistd.h>
 #include <time.h>
 
-int receive_message(int sock, void * buffer)
+int recv_udp(int sock, void * buffer)
 {
   int n = 0;
   int offset = 0;
@@ -44,6 +44,11 @@ int receive_message(int sock, void * buffer)
   } while(n == NET_DATAFRAME_MAX_LENGTH);
 
   return offset;
+}
+
+int recv_tcp(int sock, void * buffer)
+{
+  return recv(sock, buffer, NET_MAX_BUFFER_SIZE, 0);
 }
 
 static void* rf_net_async_rx_thread(void* h)
@@ -59,8 +64,7 @@ static void* rf_net_async_rx_thread(void* h)
     // Receive baseband
     n = 1;
     for (n = (n < 0) ? 0 : -1; n < 0 && rf_net_rx_is_running(q);) {
-      //n = receive_message(q->sock, q->temp_buffer);
-      n = recv(q->peer_sock, q->temp_buffer, NET_MAX_BUFFER_SIZE, 0);
+      n = q->recv_message(q->sock, q->temp_buffer);
       if (n == -1) {
         if (rf_net_handle_error(q->id, "asynchronous rx baseband receive")) {
           return NULL;
@@ -119,12 +123,30 @@ int rf_net_rx_open(rf_net_rx_t* q, rf_net_opts_t opts, char* sock_args)
     strncpy(q->id, opts.id, NET_ID_STRLEN - 1);
     q->id[NET_ID_STRLEN - 1] = '\0';
 
+    /* Register the recv method based on the protocol */
+    if(opts.proto == NET_TCP)
+      q->recv_message = recv_tcp;
+    else
+      q->recv_message = recv_udp;
+
     // Create socket
-    q->sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (!q->sock) {
-      fprintf(stderr, "[net] Error: creating transmitter socket\n");
-      goto clean_exit;
+    if(opts.proto == NET_TCP) {
+      q->local_sock = socket(AF_INET, SOCK_STREAM, 0);
+      q->sock = 0;
+      if (!q->local_sock) {
+        fprintf(stderr, "[net] Error creating transmitter TCP socket\n");
+        goto clean_exit;
+      }
     }
+    else {
+      q->sock = socket(AF_INET, SOCK_DGRAM, 0);
+      q->local_sock = 0;
+      if (!q->sock) {
+        fprintf(stderr, "[net] Error creating transmitter UDP socket\n");
+        goto clean_exit;
+      }
+    }
+
     q->socket_type        = opts.socket_type;
     q->sample_format      = opts.sample_format;
     q->frequency_mhz      = opts.frequency_mhz;
@@ -144,9 +166,17 @@ int rf_net_rx_open(rf_net_rx_t* q, rf_net_opts_t opts, char* sock_args)
     }
     bzero(&(addr.sin_zero),8);
 
-    if (bind(q->sock,(struct sockaddr *)&addr, sizeof(struct sockaddr)) == -1) {
-      fprintf(stderr, "Error: binding receiver socket: %s\n", strerror(errno));
-      goto clean_exit;
+    if(opts.proto == NET_TCP) {
+      if (bind(q->local_sock,(struct sockaddr *)&addr, sizeof(struct sockaddr)) == -1) {
+        fprintf(stderr, "Error: binding receiver TCP socket: %s\n", strerror(errno));
+        goto clean_exit;
+      }
+    }
+    else {
+      if (bind(q->sock,(struct sockaddr *)&addr, sizeof(struct sockaddr)) == -1) {
+        fprintf(stderr, "Error: binding receiver UDP socket: %s\n", strerror(errno));
+        goto clean_exit;
+      }
     }
 
     if (!opts.trx_timeout_ms) {
@@ -172,18 +202,21 @@ int rf_net_rx_open(rf_net_rx_t* q, rf_net_opts_t opts, char* sock_args)
       }
     }
 
-    /* Listen */
-    if(listen(q->sock, 5) == -1) {
-      fprintf(stderr, "Error: listening on socket (%s)\n", strerror(errno));
-			goto clean_exit;
-    }
+    /* If the protocol is TCP, listen and accept */
+    if(opts.proto == NET_TCP) {
+      /* Listen */
+      if(listen(q->local_sock, 5) == -1) {
+        fprintf(stderr, "Error: listening reciever TCP socket (%s)\n", strerror(errno));
+        goto clean_exit;
+      }
 
-    /* Accept UE */
-    q->peer_sock = accept(q->sock, (struct sockaddr *)&remote_addr, (socklen_t *) &addrlen);
-		if(q->peer_sock == -1) {
-			fprintf(stderr, "Error: accepting peer connection (%s)\n", strerror(errno));
-			goto clean_exit;
-		}
+      /* Accept UE */
+      q->sock = accept(q->local_sock, (struct sockaddr *)&remote_addr, (socklen_t *) &addrlen);
+      if(q->sock == -1) {
+        fprintf(stderr, "Error: accepting peer connection (%s)\n", strerror(errno));
+        goto clean_exit;
+      }
+    }
 
     if (srsran_ringbuffer_init(&q->ringbuffer, NET_MAX_BUFFER_SIZE)) {
       fprintf(stderr, "Error: initiating ringbuffer\n");
@@ -301,9 +334,9 @@ void rf_net_rx_close(rf_net_rx_t* q)
     close(q->sock);
     q->sock = 0;
   }
-  if(q->peer_sock) {
-    close(q->peer_sock);
-    q->peer_sock = 0;
+  if(q->local_sock) {
+    close(q->local_sock);
+    q->local_sock = 0;
   }
 }
 

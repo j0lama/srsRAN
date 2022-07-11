@@ -243,7 +243,15 @@ int rf_net_open_multi(char* args, void** h, uint32_t nof_channels)
 
       // protocol
       parse_string(args, "protocol", -1, handler->proto);
-      if(strcmp(handler->proto, "tcp") && strcmp(handler->proto, "udp")) {
+      if(!strcmp(handler->proto, "tcp")) {
+        rx_opts.proto = NET_TCP;
+        tx_opts.proto = NET_TCP;
+      }
+      else if(!strcmp(handler->proto, "udp")) {
+        rx_opts.proto = NET_UDP;
+        tx_opts.proto = NET_UDP;
+      }
+      else {
         fprintf(stderr, "[net] Invalid protocol: only 'tcp' and 'udp' are supported.\n");
         goto clean_exit;
       }
@@ -264,9 +272,9 @@ int rf_net_open_multi(char* args, void** h, uint32_t nof_channels)
     update_rates(handler, 1.92e6);
 
     for (int i = 0; i < handler->nof_channels; i++) {
-      // rx_port
-      char rx_port[RF_PARAM_LEN] = {};
-      parse_string(args, "local_addr", i, rx_port);
+      // local_addr
+      char local_addr[RF_PARAM_LEN] = {};
+      parse_string(args, "local_addr", i, local_addr);
 
       // rx_freq
       double rx_freq = 0.0f;
@@ -276,9 +284,9 @@ int rf_net_open_multi(char* args, void** h, uint32_t nof_channels)
       // rx_offset
       parse_int32(args, "rx_offset", i, &rx_opts.sample_offset);
 
-      // tx_port
-      char tx_port[RF_PARAM_LEN] = {};
-      parse_string(args, "peer_addr", i, tx_port);
+      // peer_addr
+      char peer_addr[RF_PARAM_LEN] = {};
+      parse_string(args, "peer_addr", i, peer_addr);
 
       // tx_freq
       double tx_freq = 0.0f;
@@ -306,25 +314,23 @@ int rf_net_open_multi(char* args, void** h, uint32_t nof_channels)
         rx_opts.log_trx_timeout = true;
       }
 
-      printf("ID: %s\n", handler->id);
-
       /* Open ports */
       if(!strcmp(handler->id, "enb")) { /* eNB */
         printf("Initializing eNB...\n");
         // initialize eNB receiver
-        if (strlen(rx_port) != 0) {
-          if (rf_net_rx_open(&handler->receiver[i], rx_opts, rx_port) != SRSRAN_SUCCESS) {
+        if (strlen(local_addr) != 0) {
+          if (rf_net_rx_open(&handler->receiver[i], rx_opts, local_addr) != SRSRAN_SUCCESS) {
             fprintf(stderr, "[net] Error: opening receiver\n");
             goto clean_exit;
           }
         } else {
-          fprintf(stdout, "[net] %s Rx port not specified. Disabling receiver.\n", handler->id);
+          fprintf(stdout, "[net] %s Local address not specified. Disabling receiver.\n", handler->id);
         }
         printf("eNB receiver ready.\n");
 
         // initialize eNB transmitter
-        if (strlen(tx_port) != 0) {
-          if (rf_net_tx_open(&handler->transmitter[i], tx_opts, tx_port) != SRSRAN_SUCCESS) {
+        if (strlen(peer_addr) != 0) {
+          if (rf_net_tx_open(&handler->transmitter[i], tx_opts, peer_addr) != SRSRAN_SUCCESS) {
             fprintf(stderr, "[net] Error: opening transmitter\n");
             goto clean_exit;
           }
@@ -338,8 +344,8 @@ int rf_net_open_multi(char* args, void** h, uint32_t nof_channels)
         printf("Initializing UE...\n");
 
         // initialize UE transmitter
-        if (strlen(tx_port) != 0) {
-          if (rf_net_tx_open(&handler->transmitter[i], tx_opts, tx_port) != SRSRAN_SUCCESS) {
+        if (strlen(peer_addr) != 0) {
+          if (rf_net_tx_open(&handler->transmitter[i], tx_opts, peer_addr) != SRSRAN_SUCCESS) {
             fprintf(stderr, "[net] Error: opening transmitter\n");
             goto clean_exit;
           }
@@ -350,8 +356,8 @@ int rf_net_open_multi(char* args, void** h, uint32_t nof_channels)
         printf("UE transmitter ready.\n");
 
         // initialize UE receiver
-        if (strlen(rx_port) != 0) {
-          if (rf_net_rx_open(&handler->receiver[i], rx_opts, rx_port) != SRSRAN_SUCCESS) {
+        if (strlen(local_addr) != 0) {
+          if (rf_net_rx_open(&handler->receiver[i], rx_opts, local_addr) != SRSRAN_SUCCESS) {
             fprintf(stderr, "[net] Error: opening receiver\n");
             goto clean_exit;
           }
