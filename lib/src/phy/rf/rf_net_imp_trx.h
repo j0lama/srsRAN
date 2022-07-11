@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef SRSRAN_RF_UDP_IMP_TRX_H
-#define SRSRAN_RF_UDP_IMP_TRX_H
+#ifndef SRSRAN_RF_NET_IMP_TRX_H
+#define SRSRAN_RF_NET_IMP_TRX_H
 
 #include <pthread.h>
 #include <srsran/phy/utils/ringbuffer.h>
@@ -28,26 +28,26 @@
 
 /* Definitions */
 #define VERBOSE (0)
-#define UDP_MONITOR (0)
+#define NET_MONITOR (0)
 #define NSAMPLES2NBYTES(X) (((uint32_t)(X)) * sizeof(cf_t))
 #define NBYTES2NSAMPLES(X) ((X) / sizeof(cf_t))
-#define UDP_MAX_BUFFER_SIZE (NSAMPLES2NBYTES(3072000)) // 10 subframes at 20 MHz
-#define UDP_TIMEOUT_MS (2000)
-#define UDP_BASERATE_DEFAULT_HZ (23040000)
-#define UDP_ID_STRLEN 16
-#define UDP_MAX_GAIN_DB (30.0f)
-#define UDP_MIN_GAIN_DB (0.0f)
+#define NET_MAX_BUFFER_SIZE (NSAMPLES2NBYTES(3072000)) // 10 subframes at 20 MHz
+#define NET_TIMEOUT_MS (2000)
+#define NET_BASERATE_DEFAULT_HZ (23040000)
+#define NET_ID_STRLEN 16
+#define NET_MAX_GAIN_DB (30.0f)
+#define NET_MIN_GAIN_DB (0.0f)
 
-/* UDP definitions */
-#define UDP_PORT 8008
-#define MESSAGE_MAX_LENGTH 50000
+/* NET definitions */
+#define NET_PORT 8008
+#define NET_DATAFRAME_MAX_LENGTH 50000
 
-typedef enum { UDP_TYPE_FC32 = 0, UDP_TYPE_SC16 } rf_udp_format_t;
+typedef enum { NET_TYPE_FC32 = 0, NET_TYPE_SC16 } rf_net_format_t;
 
 typedef struct {
-  char            id[UDP_ID_STRLEN];
+  char            id[NET_ID_STRLEN];
   uint32_t        socket_type;
-  rf_udp_format_t sample_format;
+  rf_net_format_t sample_format;
   int             sock;
   uint64_t        nsamples;
   bool            running;
@@ -56,12 +56,12 @@ typedef struct {
   void*           temp_buffer_convert;
   uint32_t        frequency_mhz;
   int32_t         sample_offset;
-} rf_udp_tx_t;
+} rf_net_tx_t;
 
 typedef struct {
-  char                id[UDP_ID_STRLEN];
+  char                id[NET_ID_STRLEN];
   uint32_t            socket_type;
-  rf_udp_format_t     sample_format;
+  rf_net_format_t     sample_format;
   int                 sock;
   int                 peer_sock;
   uint64_t            nsamples;
@@ -76,58 +76,58 @@ typedef struct {
   uint32_t            trx_timeout_ms;
   bool                log_trx_timeout;
   int32_t             sample_offset;
-} rf_udp_rx_t;
+} rf_net_rx_t;
 
 typedef struct {
   const char*     id;
   uint32_t        socket_type;
-  rf_udp_format_t sample_format;
+  rf_net_format_t sample_format;
   uint32_t        frequency_mhz;
   bool            fail_on_disconnect;
   uint32_t        trx_timeout_ms;
   bool            log_trx_timeout;
   int32_t         sample_offset; ///< offset in samples
-} rf_udp_opts_t;
+} rf_net_opts_t;
 
 /*
  * Common functions
  */
-SRSRAN_API void rf_udp_info(char* id, const char* format, ...);
+SRSRAN_API void rf_net_info(char* id, const char* format, ...);
 
-SRSRAN_API void rf_udp_error(char* id, const char* format, ...);
+SRSRAN_API void rf_net_error(char* id, const char* format, ...);
 
-SRSRAN_API int rf_udp_handle_error(char* id, const char* text);
+SRSRAN_API int rf_net_handle_error(char* id, const char* text);
 
 /*
  * Transmitter functions
  */
-SRSRAN_API int rf_udp_tx_open(rf_udp_tx_t* q, rf_udp_opts_t opts, char* sock_args);
+SRSRAN_API int rf_net_tx_open(rf_net_tx_t* q, rf_net_opts_t opts, char* sock_args);
 
-SRSRAN_API int rf_udp_tx_align(rf_udp_tx_t* q, uint64_t ts);
+SRSRAN_API int rf_net_tx_align(rf_net_tx_t* q, uint64_t ts);
 
-SRSRAN_API int rf_udp_tx_baseband(rf_udp_tx_t* q, cf_t* buffer, uint32_t nsamples);
+SRSRAN_API int rf_net_tx_baseband(rf_net_tx_t* q, cf_t* buffer, uint32_t nsamples);
 
-SRSRAN_API int rf_udp_tx_get_nsamples(rf_udp_tx_t* q);
+SRSRAN_API int rf_net_tx_get_nsamples(rf_net_tx_t* q);
 
-SRSRAN_API int rf_udp_tx_zeros(rf_udp_tx_t* q, uint32_t nsamples);
+SRSRAN_API int rf_net_tx_zeros(rf_net_tx_t* q, uint32_t nsamples);
 
-SRSRAN_API bool rf_udp_tx_match_freq(rf_udp_tx_t* q, uint32_t freq_hz);
+SRSRAN_API bool rf_net_tx_match_freq(rf_net_tx_t* q, uint32_t freq_hz);
 
-SRSRAN_API void rf_udp_tx_close(rf_udp_tx_t* q);
+SRSRAN_API void rf_net_tx_close(rf_net_tx_t* q);
 
-SRSRAN_API bool rf_udp_tx_is_running(rf_udp_tx_t* q);
+SRSRAN_API bool rf_net_tx_is_running(rf_net_tx_t* q);
 
 /*
  * Receiver functions
  */
-SRSRAN_API int rf_udp_rx_open(rf_udp_rx_t* q, rf_udp_opts_t opts, char* sock_args);
+SRSRAN_API int rf_net_rx_open(rf_net_rx_t* q, rf_net_opts_t opts, char* sock_args);
 
-SRSRAN_API int rf_udp_rx_baseband(rf_udp_rx_t* q, cf_t* buffer, uint32_t nsamples);
+SRSRAN_API int rf_net_rx_baseband(rf_net_rx_t* q, cf_t* buffer, uint32_t nsamples);
 
-SRSRAN_API bool rf_udp_rx_match_freq(rf_udp_rx_t* q, uint32_t freq_hz);
+SRSRAN_API bool rf_net_rx_match_freq(rf_net_rx_t* q, uint32_t freq_hz);
 
-SRSRAN_API void rf_udp_rx_close(rf_udp_rx_t* q);
+SRSRAN_API void rf_net_rx_close(rf_net_rx_t* q);
 
-SRSRAN_API bool rf_udp_rx_is_running(rf_udp_rx_t* q);
+SRSRAN_API bool rf_net_rx_is_running(rf_net_rx_t* q);
 
-#endif // SRSRAN_RF_UDP_IMP_TRX_H
+#endif // SRSRAN_RF_NET_IMP_TRX_H

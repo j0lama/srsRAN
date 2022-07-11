@@ -429,7 +429,7 @@ bool radio::tx(rf_buffer_interface& buffer, const rf_timestamp_interface& tx_tim
   // Get the sample size
   uint32_t sample_sz = sizeof(cf_t);
 
-  printf("TX Size: %d\n", sample_sz*nof_samples);
+  //printf("TX Size: %d\n", sample_sz*nof_samples);
 
   // Check that number of the interpolated samples does not exceed the buffer size
   if (ratio > 1 && (size_t)nof_samples * (size_t)ratio > tx_buffer[0].size()) {

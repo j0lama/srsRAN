@@ -28,7 +28,6 @@
 #include <srsran/phy/common/phy_common.h>
 #include <srsran/phy/utils/vector.h>
 #include <stdlib.h>
-#include <zmq.h>
 
 #define PRINT_SAMPLES 1
 #define COMPARE_BITS 0

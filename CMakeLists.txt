@@ -75,7 +75,7 @@ option(ENABLE_BLADERF        "Enable BladeRF"                           ON)
 option(ENABLE_SOAPYSDR       "Enable SoapySDR"                          ON)
 option(ENABLE_SKIQ           "Enable Sidekiq SDK"                       ON)
 option(ENABLE_ZEROMQ         "Enable ZeroMQ"                            ON)
-option(ENABLE_UDP            "Enable UDP RF"                            ON)
+option(ENABLE_NET            "Enable NET RF"                            ON)
 option(ENABLE_HARDSIM        "Enable support for SIM cards"             ON)
 
 option(ENABLE_TTCN3          "Enable TTCN3 test binaries"               OFF)

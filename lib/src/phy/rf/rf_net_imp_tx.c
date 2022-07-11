@@ -19,7 +19,7 @@
  *
  */
 
-#include "rf_udp_imp_trx.h"
+#include "rf_net_imp_trx.h"
 #include <inttypes.h>
 #include <srsran/config.h>
 #include <srsran/phy/utils/vector.h>
@@ -32,23 +32,23 @@
 #include <unistd.h>
 #include <time.h>
 
-int rf_udp_tx_open(rf_udp_tx_t* q, rf_udp_opts_t opts, char* sock_args)
+int rf_net_tx_open(rf_net_tx_t* q, rf_net_opts_t opts, char* sock_args)
 {
   struct sockaddr_in addr;
   int ret = SRSRAN_ERROR;
 
   if (q) {
     // Zero object
-    bzero(q, sizeof(rf_udp_tx_t));
+    bzero(q, sizeof(rf_net_tx_t));
 
     // Copy id
-    strncpy(q->id, opts.id, UDP_ID_STRLEN - 1);
-    q->id[UDP_ID_STRLEN - 1] = '\0';
+    strncpy(q->id, opts.id, NET_ID_STRLEN - 1);
+    q->id[NET_ID_STRLEN - 1] = '\0';
 
     // Create socket
     q->sock = socket(AF_INET, SOCK_STREAM, 0);
     if (q->sock < 0) {
-      fprintf(stderr, "[udp] Error: creating transmitter socket\n");
+      fprintf(stderr, "[net] Error: creating transmitter socket\n");
       goto clean_exit;
     }
     q->socket_type   = opts.socket_type;
@@ -56,13 +56,13 @@ int rf_udp_tx_open(rf_udp_tx_t* q, rf_udp_opts_t opts, char* sock_args)
     q->frequency_mhz = opts.frequency_mhz;
     q->sample_offset = opts.sample_offset;
 
-    rf_udp_info(q->id, "Connecting transmitter: %s\n", sock_args);
+    rf_net_info(q->id, "Connecting transmitter: %s\n", sock_args);
 
-    /* Connect UDP socket */
+    /* Connect NET socket */
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(UDP_PORT);
+    addr.sin_port = htons(NET_PORT);
     if(inet_pton(AF_INET, sock_args, &(addr.sin_addr)) != 1) {
-       fprintf(stderr, "[udp] Error: invalid IP address (%s)\n", sock_args);
+       fprintf(stderr, "[net] Error: invalid IP address (%s)\n", sock_args);
         goto clean_exit;
     }
     bzero(&(addr.sin_zero),8);
@@ -100,18 +100,18 @@ int rf_udp_tx_open(rf_udp_tx_t* q, rf_udp_opts_t opts, char* sock_args)
       goto clean_exit;
     }
 
-    q->temp_buffer_convert = srsran_vec_malloc(UDP_MAX_BUFFER_SIZE);
+    q->temp_buffer_convert = srsran_vec_malloc(NET_MAX_BUFFER_SIZE);
     if (!q->temp_buffer_convert) {
       fprintf(stderr, "Error: allocating rx buffer\n");
       goto clean_exit;
     }
 
-    q->zeros = srsran_vec_malloc(UDP_MAX_BUFFER_SIZE);
+    q->zeros = srsran_vec_malloc(NET_MAX_BUFFER_SIZE);
     if (!q->zeros) {
       fprintf(stderr, "Error: allocating zeros\n");
       goto clean_exit;
     }
-    bzero(q->zeros, UDP_MAX_BUFFER_SIZE);
+    bzero(q->zeros, NET_MAX_BUFFER_SIZE);
 
     q->running = true;
 
@@ -145,7 +145,7 @@ int send_message(int sock, void * buffer, size_t sz)
   return nbytes;
 }
 
-static int _rf_udp_tx_baseband(rf_udp_tx_t* q, cf_t* buffer, uint32_t nsamples)
+static int _rf_net_tx_baseband(rf_net_tx_t* q, cf_t* buffer, uint32_t nsamples)
 {
   int n = SRSRAN_ERROR;
 
@@ -158,13 +158,13 @@ static int _rf_udp_tx_baseband(rf_udp_tx_t* q, cf_t* buffer, uint32_t nsamples)
     //n = send_message(q->sock, buf, (size_t)sample_sz*nsamples);
     n = send(q->sock, buf, (size_t)sample_sz*nsamples, 0);
     if (n < 0) {
-      if (rf_udp_handle_error(q->id, "tx baseband send")) {
+      if (rf_net_handle_error(q->id, "tx baseband send")) {
         n = SRSRAN_ERROR;
         goto clean_exit;
       }
     } else if (n != NSAMPLES2NBYTES(nsamples)) {
-      rf_udp_error(q->id,
-                   "[udp] Error: transmitter expected %d bytes and sent %d. %s.\n",
+      rf_net_error(q->id,
+                   "[net] Error: transmitter expected %d bytes and sent %d. %s.\n",
                    NSAMPLES2NBYTES(nsamples),
                    n,
                    strerror(errno));
@@ -183,15 +183,15 @@ clean_exit:
   return n;
 }
 
-int rf_udp_tx_align(rf_udp_tx_t* q, uint64_t ts)
+int rf_net_tx_align(rf_net_tx_t* q, uint64_t ts)
 {
   pthread_mutex_lock(&q->mutex);
 
   int64_t nsamples = (int64_t)ts - (int64_t)q->nsamples;
 
   if (nsamples > 0) {
-    rf_udp_info(q->id, " - Detected Tx gap of %d samples.\n", nsamples);
-    _rf_udp_tx_baseband(q, q->zeros, (uint32_t)nsamples);
+    rf_net_info(q->id, " - Detected Tx gap of %d samples.\n", nsamples);
+    _rf_net_tx_baseband(q, q->zeros, (uint32_t)nsamples);
   }
 
   pthread_mutex_unlock(&q->mutex);
@@ -199,14 +199,14 @@ int rf_udp_tx_align(rf_udp_tx_t* q, uint64_t ts)
   return (int)nsamples;
 }
 
-int rf_udp_tx_baseband(rf_udp_tx_t* q, cf_t* buffer, uint32_t nsamples)
+int rf_net_tx_baseband(rf_net_tx_t* q, cf_t* buffer, uint32_t nsamples)
 {
   int n;
 
   pthread_mutex_lock(&q->mutex);
 
   if (q->sample_offset > 0) {
-    _rf_udp_tx_baseband(q, q->zeros, (uint32_t)q->sample_offset);
+    _rf_net_tx_baseband(q, q->zeros, (uint32_t)q->sample_offset);
     q->sample_offset = 0;
   } else if (q->sample_offset < 0) {
     n = SRSRAN_MIN(-q->sample_offset, nsamples);
@@ -218,14 +218,14 @@ int rf_udp_tx_baseband(rf_udp_tx_t* q, cf_t* buffer, uint32_t nsamples)
     }
   }
 
-  n = _rf_udp_tx_baseband(q, buffer, nsamples);
+  n = _rf_net_tx_baseband(q, buffer, nsamples);
 
   pthread_mutex_unlock(&q->mutex);
 
   return n;
 }
 
-int rf_udp_tx_get_nsamples(rf_udp_tx_t* q)
+int rf_net_tx_get_nsamples(rf_net_tx_t* q)
 {
   pthread_mutex_lock(&q->mutex);
   int ret = q->nsamples;
@@ -233,19 +233,19 @@ int rf_udp_tx_get_nsamples(rf_udp_tx_t* q)
   return ret;
 }
 
-int rf_udp_tx_zeros(rf_udp_tx_t* q, uint32_t nsamples)
+int rf_net_tx_zeros(rf_net_tx_t* q, uint32_t nsamples)
 {
   pthread_mutex_lock(&q->mutex);
 
-  rf_udp_info(q->id, " - Tx %d Zeros.\n", nsamples);
-  _rf_udp_tx_baseband(q, q->zeros, (uint32_t)nsamples);
+  rf_net_info(q->id, " - Tx %d Zeros.\n", nsamples);
+  _rf_net_tx_baseband(q, q->zeros, (uint32_t)nsamples);
 
   pthread_mutex_unlock(&q->mutex);
 
   return (int)nsamples;
 }
 
-bool rf_udp_tx_match_freq(rf_udp_tx_t* q, uint32_t freq_hz)
+bool rf_net_tx_match_freq(rf_net_tx_t* q, uint32_t freq_hz)
 {
   bool ret = false;
   if (q) {
@@ -254,7 +254,7 @@ bool rf_udp_tx_match_freq(rf_udp_tx_t* q, uint32_t freq_hz)
   return ret;
 }
 
-void rf_udp_tx_close(rf_udp_tx_t* q)
+void rf_net_tx_close(rf_net_tx_t* q)
 {
   pthread_mutex_lock(&q->mutex);
   q->running = false;
@@ -276,7 +276,7 @@ void rf_udp_tx_close(rf_udp_tx_t* q)
   }
 }
 
-bool rf_udp_tx_is_running(rf_udp_tx_t* q)
+bool rf_net_tx_is_running(rf_net_tx_t* q)
 {
   if (!q) {
     return false;

@@ -62,13 +62,13 @@ static srsran_rf_plugin_t plugin_zmq   = {"", NULL, &srsran_rf_dev_zmq};
 #endif
 #endif
 
-/* Define implementation for UDP RF */
-#ifdef ENABLE_UDP
+/* Define implementation for NET RF */
+#ifdef ENABLE_NET
 #ifdef ENABLE_RF_PLUGINS
-static srsran_rf_plugin_t plugin_udp = {"libsrsran_rf_udp.so", NULL, NULL};
+static srsran_rf_plugin_t plugin_net = {"libsrsran_rf_net.so", NULL, NULL};
 #else
-#include "rf_udp_imp.h"
-static srsran_rf_plugin_t plugin_udp   = {"", NULL, &srsran_rf_dev_udp};
+#include "rf_net_imp.h"
+static srsran_rf_plugin_t plugin_net   = {"", NULL, &srsran_rf_dev_net};
 #endif
 #endif
 
@@ -127,8 +127,8 @@ static srsran_rf_plugin_t* rf_plugins[] = {
 #ifdef ENABLE_DUMMY_DEV
     &plugin_dummy,
 #endif
-#ifdef ENABLE_UDP
-    &plugin_udp,
+#ifdef ENABLE_NET
+    &plugin_net,
 #endif
     &plugin_file,
     NULL};
