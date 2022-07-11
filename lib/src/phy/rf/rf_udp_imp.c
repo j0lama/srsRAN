@@ -266,7 +266,7 @@ int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
     for (int i = 0; i < handler->nof_channels; i++) {
       // rx_port
       char rx_port[RF_PARAM_LEN] = {};
-      parse_string(args, "rx_port", i, rx_port);
+      parse_string(args, "addr", i, rx_port);
 
       // rx_freq
       double rx_freq = 0.0f;
@@ -278,7 +278,7 @@ int rf_udp_open_multi(char* args, void** h, uint32_t nof_channels)
 
       // tx_port
       char tx_port[RF_PARAM_LEN] = {};
-      parse_string(args, "tx_port", i, tx_port);
+      parse_string(args, "peer_addr", i, tx_port);
 
       // tx_freq
       double tx_freq = 0.0f;
