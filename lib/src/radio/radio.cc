@@ -358,7 +358,7 @@ bool radio::rx_now(rf_buffer_interface& buffer, rf_timestamp_interface& rxd_time
   }
 
   printf("RX buffer Samples: %d\n", buffer.get_nof_samples());
-  printf("RX buffer_rx Samples: %d\n", buffer.get_nof_samples());
+  printf("RX buffer_rx Samples: %d\n", buffer_rx.get_nof_samples());
 
   return ret;
 }
