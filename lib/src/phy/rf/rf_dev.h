@@ -127,8 +127,6 @@ static srsran_rf_plugin_t* rf_plugins[] = {
 #ifdef ENABLE_DUMMY_DEV
     &plugin_dummy,
 #endif
-#ifdef ENABLE_NET
     &plugin_net,
-#endif
     &plugin_file,
     NULL};
