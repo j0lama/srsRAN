@@ -351,14 +351,12 @@ bool radio::rx_now(rf_buffer_interface& buffer, rf_timestamp_interface& rxd_time
   // Perform decimation (decrease sampling rate)
   if (ratio > 1) {
     for (uint32_t ch = 0; ch < nof_channels; ch++) {
+      printf("decimation %d\n", nof_channels);
       if (buffer.get(ch) and buffer_rx.get(ch)) {
         srsran_resampler_fft_run(&decimators[ch], buffer_rx.get(ch), buffer.get(ch), buffer_rx.get_nof_samples());
       }
     }
   }
-
-  printf("RX buffer Samples: %d\n", buffer.get_nof_samples());
-  printf("RX buffer_rx Samples: %d\n", buffer_rx.get_nof_samples());
 
   return ret;
 }
@@ -452,6 +450,7 @@ bool radio::tx(rf_buffer_interface& buffer, const rf_timestamp_interface& tx_tim
 
   // If the interpolator have been set, interpolate (increase sampling rate)
   if (interpolators[0].ratio > 1) {
+    printf("interpolation %d\n", nof_channels);
     for (uint32_t ch = 0; ch < nof_channels; ch++) {
       // Perform actual interpolation
       srsran_resampler_fft_run(&interpolators[ch], buffer.get(ch), tx_buffer[ch].data(), nof_samples);
@@ -467,8 +466,6 @@ bool radio::tx(rf_buffer_interface& buffer, const rf_timestamp_interface& tx_tim
   for (uint32_t device_idx = 0; device_idx < (uint32_t)rf_devices.size(); device_idx++) {
     ret &= tx_dev(device_idx, buffer, tx_time.get(device_idx));
   }
-
-  printf("TX Samples: %d\n", buffer.get_nof_samples());
 
   is_start_of_burst = false;
 
