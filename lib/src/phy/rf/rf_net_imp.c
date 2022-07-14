@@ -626,6 +626,7 @@ int rf_net_recv_with_time_multi(void* h, void** data, uint32_t nsamples, bool bl
     // Protect the access to decim_factor since is a shared variable
     pthread_mutex_lock(&handler->decim_mutex);
     uint32_t decim_factor = handler->decim_factor;
+    uint32_t aux_decim = decim_factor;
     decim_factor = 1;
     pthread_mutex_unlock(&handler->decim_mutex);
 
@@ -683,7 +684,7 @@ int rf_net_recv_with_time_multi(void* h, void** data, uint32_t nsamples, bool bl
 
       // Iterate channels
       for (uint32_t i = 0; i < handler->nof_channels; i++) {
-        cf_t* ptr = (decim_factor != 1 || buffers[i] == NULL) ? handler->buffer_decimation[i] : handler->buffer_decimation[i];
+        cf_t* ptr = (decim_factor != 1 || buffers[i] == NULL) ? handler->buffer_decimation[i] : buffers[i];
 
         // Completed condition
         if (count[i] < nsamples_baserate && rf_net_rx_is_running(&handler->receiver[i])) {
@@ -745,6 +746,7 @@ int rf_net_recv_with_time_multi(void* h, void** data, uint32_t nsamples, bool bl
       }
     }
 
+    decim_factor = aux_decim;
     // Set gain
     pthread_mutex_lock(&handler->rx_gain_mutex);
     float scale = srsran_convert_dB_to_amplitude(handler->rx_gain);
