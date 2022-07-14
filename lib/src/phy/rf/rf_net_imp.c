@@ -746,18 +746,18 @@ int rf_net_recv_with_time_multi(void* h, void** data, uint32_t nsamples, bool bl
     }
 
     // Set gain
-    //pthread_mutex_lock(&handler->rx_gain_mutex);
-    //float scale = srsran_convert_dB_to_amplitude(handler->rx_gain);
-    //pthread_mutex_unlock(&handler->rx_gain_mutex);
-    //// scale shall also incorporate decim_factor
-    //if (decim_factor > 0) {
-    //  scale = scale / decim_factor;
-    //}
-    //for (uint32_t c = 0; c < handler->nof_channels; c++) {
-    //  if (buffers[c]) {
-    //    srsran_vec_sc_prod_cfc(buffers[c], scale, buffers[c], nsamples);
-    //  }
-    //}
+    pthread_mutex_lock(&handler->rx_gain_mutex);
+    float scale = srsran_convert_dB_to_amplitude(handler->rx_gain);
+    pthread_mutex_unlock(&handler->rx_gain_mutex);
+    // scale shall also incorporate decim_factor
+    if (decim_factor > 0) {
+      scale = scale / decim_factor;
+    }
+    for (uint32_t c = 0; c < handler->nof_channels; c++) {
+      if (buffers[c]) {
+        srsran_vec_sc_prod_cfc(buffers[c], scale, buffers[c], nsamples);
+      }
+    }
 
     // update rx time
     update_ts(handler, &handler->next_rx_ts, nsamples_baserate, "rx");
@@ -908,9 +908,14 @@ int rf_net_send_timed_multi(void*  h,
             goto clean_exit;
           }
         }
+        else {
+          for(int j = 0; j < nsamples; j++) {
+            buf[j] = handler->buffer_tx[j];
+          }
+        }
 
         // Scale according to current gain
-        //srsran_vec_sc_prod_cfc(buf, tx_gain, buf, nsamples_baseband);
+        srsran_vec_sc_prod_cfc(buf, tx_gain, buf, nsamples_baseband);
 
         // Finally, transmit baseband
         int n = rf_net_tx_baseband(&handler->transmitter[i], buf, nsamples_baseband);
