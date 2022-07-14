@@ -94,6 +94,8 @@ static void* rf_net_async_rx_thread(void* h)
         }
       }
 
+      printf("rx samples: %d\n", NBYTES2NSAMPLES(n));
+
       // Check write
       if (nbytes == n) {
         rf_net_info(q->id,

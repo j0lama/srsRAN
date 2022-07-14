@@ -170,8 +170,7 @@ static int _rf_net_tx_baseband(rf_net_tx_t* q, cf_t* buffer, uint32_t nsamples)
     uint32_t sample_sz = sizeof(cf_t);
 
     // Send base-band if request was received
-    printf("rf size: %d\n", sample_sz*nsamples);
-    printf("rf samples: %d\n\n", nsamples);
+    printf("tx samples: %d\n", nsamples);
     n = q->send_message(q->sock, buf, (size_t) sample_sz*nsamples);
     if (n < 0) {
       if (rf_net_handle_error(q->id, "tx baseband send")) {
