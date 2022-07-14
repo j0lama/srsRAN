@@ -351,7 +351,6 @@ bool radio::rx_now(rf_buffer_interface& buffer, rf_timestamp_interface& rxd_time
   // Perform decimation (decrease sampling rate)
   if (ratio > 1) {
     for (uint32_t ch = 0; ch < nof_channels; ch++) {
-      printf("decimation %d\n", nof_channels);
       if (buffer.get(ch) and buffer_rx.get(ch)) {
         srsran_resampler_fft_run(&decimators[ch], buffer_rx.get(ch), buffer.get(ch), buffer_rx.get_nof_samples());
       }
@@ -430,6 +429,9 @@ bool radio::tx(rf_buffer_interface& buffer, const rf_timestamp_interface& tx_tim
   // Get the sample size
   uint32_t sample_sz = sizeof(cf_t);
 
+  printf("radio size: %d\n", nof_samples*sample_sz);
+  printf("radio samples: %d\n", nof_samples);
+
   //printf("TX Size: %d\n", sample_sz*nof_samples);
 
   // Check that number of the interpolated samples does not exceed the buffer size
@@ -450,7 +452,6 @@ bool radio::tx(rf_buffer_interface& buffer, const rf_timestamp_interface& tx_tim
 
   // If the interpolator have been set, interpolate (increase sampling rate)
   if (interpolators[0].ratio > 1) {
-    printf("interpolation %d\n", nof_channels);
     for (uint32_t ch = 0; ch < nof_channels; ch++) {
       // Perform actual interpolation
       srsran_resampler_fft_run(&interpolators[ch], buffer.get(ch), tx_buffer[ch].data(), nof_samples);
