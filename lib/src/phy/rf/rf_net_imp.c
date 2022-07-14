@@ -626,6 +626,7 @@ int rf_net_recv_with_time_multi(void* h, void** data, uint32_t nsamples, bool bl
     // Protect the access to decim_factor since is a shared variable
     pthread_mutex_lock(&handler->decim_mutex);
     uint32_t decim_factor = handler->decim_factor;
+    decim_factor = 1;
     pthread_mutex_unlock(&handler->decim_mutex);
 
     uint32_t nbytes            = NSAMPLES2NBYTES(nsamples * decim_factor);
@@ -833,6 +834,7 @@ int rf_net_send_timed_multi(void*  h,
     // Protect the access to decim_factor since is a shared variable
     pthread_mutex_lock(&handler->decim_mutex);
     uint32_t decim_factor = handler->decim_factor;
+    decim_factor = 1;
     pthread_mutex_unlock(&handler->decim_mutex);
 
     uint32_t nbytes            = NSAMPLES2NBYTES(nsamples);
@@ -842,11 +844,6 @@ int rf_net_send_timed_multi(void*  h,
       fprintf(stderr, "Error: trying to transmit too many samples (%d > %zu).\n", nbytes, NET_MAX_BUFFER_SIZE);
       goto clean_exit;
     }
-
-    printf("net nsamples: %d\n", nsamples);
-    printf("net decimFact: %d\n", decim_factor);
-    printf("net size: %d\n", nbytes_baseband);
-    printf("net channels: %d\n", handler->nof_channels);
 
     rf_net_info(handler->id, "Tx %d samples (%d B)\n", nsamples, nbytes);
 
