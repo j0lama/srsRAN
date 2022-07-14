@@ -464,6 +464,9 @@ bool radio::tx(rf_buffer_interface& buffer, const rf_timestamp_interface& tx_tim
     buffer.set_nof_samples(nof_samples * ratio);
   }
 
+  printf("buffer size: %d\n", buffer.get_nof_samples()*sample_sz);
+  printf("buffer samples: %d\n", buffer.get_nof_samples());
+
   for (uint32_t device_idx = 0; device_idx < (uint32_t)rf_devices.size(); device_idx++) {
     ret &= tx_dev(device_idx, buffer, tx_time.get(device_idx));
   }
