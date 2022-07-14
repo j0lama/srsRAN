@@ -629,9 +629,6 @@ bool radio::tx_dev(const uint32_t& device_idx, rf_buffer_interface& buffer, cons
     return false;
   }
 
-  printf("tx_dev size: %d\n", (int)(nof_samples*sizeof(cf_t)));
-  printf("tx_dev samples: %d\n", nof_samples);
-
   int ret = srsran_rf_send_timed_multi(
       rf_device, radio_buffers, nof_samples, tx_time.full_secs, tx_time.frac_secs, true, is_start_of_burst, false);
 

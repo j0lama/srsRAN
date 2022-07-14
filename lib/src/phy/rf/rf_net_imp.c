@@ -843,6 +843,11 @@ int rf_net_send_timed_multi(void*  h,
       goto clean_exit;
     }
 
+    printf("net nsamples: %d\n", nsamples);
+    printf("net decimFact: %d\n", decim_factor);
+    printf("net size: %d\n", nbytes_baseband);
+    printf("net channels: %d\n", handler->nof_channels);
+
     rf_net_info(handler->id, "Tx %d samples (%d B)\n", nsamples, nbytes);
 
     // return if transmitter is switched off
