@@ -423,14 +423,16 @@ bool radio::tx(rf_buffer_interface& buffer, const rf_timestamp_interface& tx_tim
   std::unique_lock<std::mutex> lock(tx_mutex);
   uint32_t                     ratio = interpolators[0].ratio;
 
+  /* 
+  Radio size (nof_samples*sample_sz): 92160
+  Radio samples (nof_samples): 11520
+  */
+
   // Get number of samples at the low rate
   uint32_t nof_samples = buffer.get_nof_samples();
 
   // Get the sample size
   uint32_t sample_sz = sizeof(cf_t);
-
-  printf("radio size: %d\n", nof_samples*sample_sz);
-  printf("radio samples: %d\n", nof_samples);
 
   //printf("TX Size: %d\n", sample_sz*nof_samples);
 
@@ -463,9 +465,6 @@ bool radio::tx(rf_buffer_interface& buffer, const rf_timestamp_interface& tx_tim
     // Set buffer size after applying the interpolation
     buffer.set_nof_samples(nof_samples * ratio);
   }
-
-  printf("buffer size: %d\n", buffer.get_nof_samples()*sample_sz);
-  printf("buffer samples: %d\n", buffer.get_nof_samples());
 
   for (uint32_t device_idx = 0; device_idx < (uint32_t)rf_devices.size(); device_idx++) {
     ret &= tx_dev(device_idx, buffer, tx_time.get(device_idx));
@@ -629,6 +628,9 @@ bool radio::tx_dev(const uint32_t& device_idx, rf_buffer_interface& buffer, cons
     logger.error("Mapping logical channels to physical channels for transmission");
     return false;
   }
+
+  printf("tx_dev size: %d\n", nof_samples*sizeof(cf_t););
+  printf("tx_dev samples: %d\n", nof_samples);
 
   int ret = srsran_rf_send_timed_multi(
       rf_device, radio_buffers, nof_samples, tx_time.full_secs, tx_time.frac_secs, true, is_start_of_burst, false);
