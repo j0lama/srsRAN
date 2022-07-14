@@ -626,7 +626,7 @@ int rf_net_recv_with_time_multi(void* h, void** data, uint32_t nsamples, bool bl
     // Protect the access to decim_factor since is a shared variable
     pthread_mutex_lock(&handler->decim_mutex);
     uint32_t decim_factor = handler->decim_factor;
-    //decim_factor = 1;
+    decim_factor = 1;
     pthread_mutex_unlock(&handler->decim_mutex);
 
     uint32_t nbytes            = NSAMPLES2NBYTES(nsamples * decim_factor);
@@ -683,7 +683,7 @@ int rf_net_recv_with_time_multi(void* h, void** data, uint32_t nsamples, bool bl
 
       // Iterate channels
       for (uint32_t i = 0; i < handler->nof_channels; i++) {
-        cf_t* ptr = (decim_factor != 1 || buffers[i] == NULL) ? handler->buffer_decimation[i] : buffers[i];
+        cf_t* ptr = (decim_factor != 1 || buffers[i] == NULL) ? handler->buffer_decimation[i] : handler->buffer_decimation[i];
 
         // Completed condition
         if (count[i] < nsamples_baserate && rf_net_rx_is_running(&handler->receiver[i])) {
@@ -834,7 +834,7 @@ int rf_net_send_timed_multi(void*  h,
     // Protect the access to decim_factor since is a shared variable
     pthread_mutex_lock(&handler->decim_mutex);
     uint32_t decim_factor = handler->decim_factor;
-    //decim_factor = 1;
+    decim_factor = 1;
     pthread_mutex_unlock(&handler->decim_mutex);
 
     uint32_t nbytes            = NSAMPLES2NBYTES(nsamples);
