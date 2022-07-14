@@ -94,7 +94,7 @@ static void* rf_net_async_rx_thread(void* h)
         }
       }
 
-      printf("rx samples: %d\n", NBYTES2NSAMPLES(n));
+      printf("rx samples: %d\n", (int)NBYTES2NSAMPLES(n));
 
       // Check write
       if (nbytes == n) {
